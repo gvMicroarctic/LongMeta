@@ -1,0 +1,587 @@
+#!/usr/bin/perl
+
+use strict;
+use POSIX;
+use threads;
+
+#Assign Diamond file with taxonomy and functionality information
+
+#usage: longMeta-assignment [--help] [--tmp TEMPORARY_FOLDER] [--threads POS_INTEGER] [--assembly INPUT_FILE] [--paired-read INPUT_FILE] [--unpaired-read INPUT_FILE] [--gene-output FILE_OUTPUT] [--taxonomy-output FILE_OUTPUT] [--taxonomy {h, b, l}] [--taxid2taxon DATABASE_FILE] [--acc2taxid DATABASE_FILE] [--max-equal POS_INTEGER] [--cutoff-ID-best POS_INTEGER] [--min-best POS_INTEGER] [--all-lca {mixed, gene, all}] [--min-lca POS_INTEGER] [--cutoff-ID-lca POS_INTEGER]
+
+#help message
+if (($ARGV[0] eq '--help') or ($ARGV[0] eq '-h')) {
+    print "usage: longMeta-assignment [--help] [--tmp TEMPORARY_FOLDER] [--threads POS_INTEGER] [--assembly INPUT_FILE] [--paired-read INPUT_FILE] [--unpaired-read INPUT_FILE] [--gene-output FILE_OUTPUT] [--taxonomy-output FILE_OUTPUT] [--taxonomy {h, b, l}] [--taxid2taxon DATABASE_FILE] [--acc2taxid DATABASE_FILE] [--max-equal POS_INTEGER] [--cutoff-ID-best POS_INTEGER] [--min-best POS_INTEGER] [--all-lca {mixed, gene, all}] [--min-lca POS_INTEGER] [--cutoff-ID-lca POS_INTEGER]\n\n";
+    
+    print "--help, -h\n\tshow help message\n";
+    print "--threads POS_INTEGER\n\tnumber of threads\n\n";
+    
+    print "--tmp TEMPORARY_FOLDER\n\ttemporary folder\n";
+    print "--assembly, -a INPUT_FILE\n\tDiamond file for assembly (blast tabular format)\n";
+    print "--paired-read, -p INPUT_FILE\n\tDiamond file for paired reads (comma separated files) (blast tabular format)\n";
+    print "--unpaired-read, -u INPUT_FILE\n\tDiamond file for unpaired reads (comma separated files) (blast tabular format)\n\n";
+    
+    print "Options for gene assignment:\n\n";
+    print "--gene-output FILE_OUTPUT\n\tgene output file\n";
+    print "--overlap POS_INTEGER\n\tmaximum number of overlapping bases between gene coding regions\n\n";
+    
+    print "Options for taxonomy assignment:\n\n";
+    print "--taxonomy-output FILE_OUTPUT\n\ttaxonomy output file\n";
+    print "--taxid2taxon DATABASE_FILE\n\tdatabase file reporting taxids and taxonomy information\n";
+    print "--acc2taxid DATABASE_FILE\n\tdatabase file reporting accession numbers and taxids\n";
+    print "--taxonomy {h, b, l}\n\tpipeline for the taxonomy assignment. h stands for hybrid, l for lca and b for best. default: h\n";
+    print "--max-equal POS_INTEGER\n\tmaximum number of sequences to be used for taxonomical classification when sequences with the same Diamond identity score and bit-score were assigned to the same sequence area. If not specified, LongMeta uses all the sequences\n";
+    print "--cutoff-ID-best POS_INTEGER\n\tidentity score value to consider a Diamond alignment for the BEST algorithm. default: 80\n";
+    print "--min-best POS_INTEGER\tminimum number of sequences assigned to a sequence to run the BEST algorithm. default: 3\n";
+    print "--all-lca {all, gene, mixed}\n\tLCA algorithm can use all the sequences that Diamond assigned to a sequence (all), only the sequences that were assigned as genes (gene) or a mixed approach (mixed). In the latter, all the sequences are used only if less than a n number of sequences is present. N can be set with the option --min-lca. Default: mixed\n";
+    print "--min-lca POS_INTEGER\n\tminimum number of sequences needed to run the LCA algorithm on only gene-assigned matches. default: 3. (to use with --all-lca mixed)\n";
+    print "--cutoff-ID-lca POS_INTEGER\n\tminimum identity score to give more weight to a certain Diamond alignment. default: 80\n\n";
+    
+    exit;
+}
+
+my %args = @ARGV;
+
+#check options
+my %allOption;
+$allOption{'--help'} = ''; $allOption{'-h'} = '';
+$allOption{'--assembly'} = ''; $allOption{'-a'} = '';
+$allOption{'--paired-read'} = ''; $allOption{'-p'} = '';
+$allOption{'--unpaired-read'} = ''; $allOption{'-u'} = '';
+
+$allOption{'--taxonomy'} = '';
+$allOption{'--taxonomy-output'} = '';
+$allOption{'--taxid2taxon'} = '';
+$allOption{'--acc2taxid'} = '';
+
+$allOption{'--max-equal'} = '';
+$allOption{'--cutoff-ID-best'} = '';
+$allOption{'--min-best'} = '';
+$allOption{'--all-lca'} = '';
+$allOption{'--min-lca'} = '';
+$allOption{'--cutoff-ID-lca'} = '';
+$allOption{'--overlap'} = '';
+
+$allOption{'--gene-output'} = '';
+$allOption{'--tmp'} = '';
+$allOption{'--threads'} = '';
+
+foreach my $a (keys %args) {
+    if (!(defined($allOption{$a}))) {
+        print "Error: Invalid command option: $a. To print help message: longMeta-assignment -h\n";
+        exit;
+    }
+}
+
+#import options
+
+#input files
+my @diamondassembly = split(/,/, $args{'-a'}); #assembly or long reads (e.g. Nanopore sequences)
+if ($diamondassembly[0] eq "") {
+    @diamondassembly = split(/,/, $args{'--assembly'});
+}
+my @diamondpair = split(/,/, $args{'-p'}); #short paired reads (e.g. Illumina reads)
+if ($diamondpair[0] eq "") {
+    @diamondpair = split(/,/, $args{'--paired-read'});
+}
+my @diamondunpair = split(/,/, $args{'-u'}); #short unpaired reads (e.g. Illumina reads)
+if ($diamondunpair[0] eq "") {
+    @diamondunpair = split(/,/, $args{'--unpaired-read'});
+}
+
+my %all_fileSE;
+my %all_filePE;
+my $pe = 0;
+my $se = 0;
+my %all_fileCHECK;
+
+if ($diamondassembly[0] ne '') {
+    foreach my $diamond (@diamondassembly) { #contigs
+        $all_fileSE{$diamond} = 1;
+        $se = 1;
+        $all_fileCHECK{$diamond} = '';
+    }
+}
+if ($diamondpair[1] ne '') { #paired reads (e.g. Illumina reads)
+    foreach my $diamond (@diamondpair) {
+        $all_filePE{$diamond} = 2;
+        $pe=1;
+        $all_fileCHECK{$diamond} = '';
+    }
+} elsif ($diamondpair[0] ne '') {
+    print "Error: --paired-read option must specify two paired files. To print help message: longMeta-assignment --help\n";
+    exit;
+}
+
+
+if ($diamondunpair[0] ne '') {
+    foreach my $diamond (@diamondunpair) { #unpaired reads (e.g. Illumina reads)
+        $all_fileSE{$diamond} = 1;
+        $se = 1;
+        $all_fileCHECK{$diamond} = '';
+    }
+}
+
+if (($se == 0) && ($pe == 0)) {
+    print "Error: either --assembly, --paired-read and/or --unpaired-read must be specified. To print help message: longMeta-assignment --help\n";
+    exit;
+}
+
+foreach my $diamond (keys %all_fileCHECK) { #check diamond files
+    if ($diamond =~ /.gz$/) {
+        if (!(open(FILE, "gunzip -c $diamond |"))) {
+            print "Error: longMeta-abundance cannot open $diamond. To print help message: longMeta-assignment --help\n";
+            exit;
+        }
+    } else {
+        if (!(open(FILE, "<$diamond"))) {
+            print "Error: longMeta-abundance cannot open $diamond. To print help message: longMeta-assignment --help\n";
+            exit;
+        }
+    }
+    close(FILE);
+}
+
+
+#gene output file
+my $outGene = $args{'--gene-output'};
+my $fileGene;
+if ($outGene ne "") {
+    if (!(open($fileGene, ">$outGene"))) {
+        print "Error: longMeta-assignment cannot open $outGene. To print help message: longMeta-assignment --help\n";
+        exit;
+    }
+    close($fileGene);
+} else {
+    print "Warning: --gene-output was not specified. longMeta-assignment will not assign gene content to your data\n";
+}
+
+#taxonomy output file
+my $outTax = $args{'--taxonomy-output'};
+my $fileTax;
+if ($outTax ne "") {
+    if (!(open($fileTax, ">$outTax"))) {
+        print "Error: longMeta-assignment cannot open $outTax. To print help message: longMeta-assignment --help\n";
+        exit;
+    }
+    close($fileTax);
+} else {
+    print "Warning: --taxonomy-output was not specified. longMeta-assignment will not assign taxonomy to your data\n";
+}
+
+my $taxonomy;
+my $acc2taxid;
+my $taxid2taxon;
+
+if ($outTax ne "") {
+    $taxonomy = $args{'--taxonomy'}; #h, l and b
+    if ($taxonomy eq "") {
+        $taxonomy = "h";
+    } elsif (($taxonomy ne 'h') && ($taxonomy ne 'l') && ($taxonomy ne 'b')) {
+        print "Error: --taxonomy must be either h, l or b. To print help message: longMeta-assignment --help\n";
+        exit;
+    }
+    
+    #taxid to taxonomy database file
+    $taxid2taxon = $args{'--taxid2taxon'};
+    if ($taxid2taxon ne "") {
+        if ($taxid2taxon =~ /.gz$/) {
+            if (-e $taxid2taxon) {
+                open(TAXA1, "gunzip -c $taxid2taxon |");
+            } else {
+                print "Error: longMeta-assignment cannot open $taxid2taxon. To print help message: longMeta-assignment --help\n";
+                exit;
+            }
+            
+        } else {
+            if (!(open(TAXA1, "<$taxid2taxon"))) {
+                print "Error: longMeta-assignment cannot open $taxid2taxon. To print help message: longMeta-assignment --help\n";
+                exit;
+            }
+        }
+    } else {
+        print "Error: --taxid2taxon must be specified. To print help message: longMeta-chimera --help\n";
+        exit;
+    }
+    
+    #accession to taxid database file
+    $acc2taxid = $args{'--acc2taxid'};
+    if ($acc2taxid ne "") {
+        if ($acc2taxid =~ /.gz$/) {
+            
+            if (-e $acc2taxid) {
+                open(TAXA2, "gunzip -c $acc2taxid |");
+            } else {
+                print "Error: longMeta-assignment cannot open $acc2taxid. To print help message: longMeta-assignment --help\n";
+                exit;
+            }
+            
+        } else {
+            if (!(open(TAXA2, "<$acc2taxid"))) {
+                print "Error: longMeta-assignment cannot open $acc2taxid. To print help message: longMeta-assignment --help\n";
+                exit;
+            }
+        }
+    } else {
+        print "Error: --acc2taxid must be specified. To print help message: longMeta-chimera --help\n";
+        exit;
+    }
+}
+
+#thread number
+my $th = $args{'--threads'};
+if ($th eq "") {
+    $th = 1;
+} elsif ($th !~ /^\d+$/) {
+    print "Error: --threads must be a positive integer. To print help message: longMeta-assignment --help\n";
+    exit;
+}
+
+#temporary folder
+my $tmp = $args{'--tmp'}; # tmp folder
+if ($tmp eq "") {
+    print "Error: --tmp must be specified. To print help message: longMeta-assignment --help\n";
+    exit;
+} else {
+    if (!(-e $tmp and -d $tmp)) {
+        print "Error: longMeta-assignment cannot open $tmp. To print help message: longMeta-assignment --help\n";
+        exit;
+    }
+}
+
+#taxonomy assignment parameters
+my $max_match = $args{'--max-equal'};
+if ($max_match eq '') {
+    $max_match = 'NA';
+} elsif ($max_match !~ /^\d+$/) {
+    print "Error: --max-equal must be a positive integer. To print help message: longMeta-assignment --help\n";
+    exit;
+}
+
+my $cutoff_best = $args{'--cutoff-ID-best'};
+if ($cutoff_best eq '') {
+    $cutoff_best = 80;
+} elsif ($cutoff_best !~ /^\d+$/) {
+    print "Error: --cutoff-ID-best must be a positive integer. To print help message: longMeta-assignment --help\n";
+    exit;
+}
+
+my $min_best = $args{'--min-best'};
+if ($min_best eq '') {
+    $min_best = 3;
+} elsif ($min_best !~ /^\d+$/) {
+    print "Error: --min-best must be a positive integer. To print help message: longMeta-assignment --help\n";
+    exit;
+}
+
+my $all_lca = $args{'--all-lca'}; #mixed (or all, gene)
+if ($all_lca eq '') {
+    $all_lca = 'mixed';
+} elsif (($all_lca ne 'mixed') && ($all_lca ne 'all') && ($all_lca ne 'gene')) {
+    print "Error: --all-lca must be either mixed, all or gene. To print help message: longMeta-abundance --help\n";
+    exit;
+}
+
+my $min_lca = $args{'--min-lca'};
+if ($min_lca eq '') {
+    $min_lca = 3;
+} elsif ($min_lca !~ /^\d+$/) {
+    print "Error: --min-lca must be a positive integer. To print help message: longMeta-assignment --help\n";
+    exit;
+}
+
+my $cutoff_lca = $args{'--cutoff-ID-lca'};
+if ($cutoff_lca eq '') {
+    $cutoff_lca = 80;
+} elsif ($cutoff_lca !~ /^\d+$/) {
+    print "Error: --cutoff-ID-lca must be a positive integer. To print help message: longMeta-assignment --help\n";
+    exit;
+}
+
+#gene assignment parameters
+my $overlap = $args{'--overlap'};
+if ($overlap eq '') {
+    $overlap = 3;
+} elsif ($overlap !~ /^\d+$/) {
+    print "Error: --overlap must be a positive integer. To print help message: longMeta-assignment --help\n";
+    exit;
+}
+
+#check input files
+my $line_sum = 0;
+foreach my $file (keys %all_filePE) {
+    if ($file =~ /.gz$/) {
+        my $line0 = `zcat $file | wc -l`;
+        my ($line) = $line0 =~ /(.*)\s/;
+        $line_sum += $line;
+    } else {
+        my $line0 = `wc -l $file`;
+        my ($line) = $line0 =~ /(.*)\s/;
+        $line_sum += $line;
+    }
+}
+foreach my $file (keys %all_fileSE) {
+    if ($file =~ /.gz$/) {
+        my $line0 = `zcat $file | wc -l`;
+        my ($line) = $line0 =~ /(.*)\s/;
+        $line_sum += $line;
+    } else {
+        my $line0 = `wc -l $file`;
+        my ($line) = $line0 =~ /(.*)\s/;
+        $line_sum += $line;
+    }
+}
+my $size = ceil($line_sum/$th); #divided with number of threads
+
+my $serial = 1;
+my %process; #setup processes
+my $porcessCount = 0; #setup processes
+
+if ($th == 1) { #one thread
+    
+    my $pairFile;
+    my $PE = 0;
+    foreach my $diamond (keys %all_filePE) {
+        $PE = 1;
+        my $diamondFile = $diamond;
+        if ($diamond =~ /.gz$/) {
+            $diamondFile =~ s/.gz$/.tmp.gz/;
+        } else {
+            $diamondFile .= ".tmp";
+        }
+        $diamondFile = "./" . $tmp . "/" . $diamondFile;
+        `cp $diamond $diamondFile`;
+        $pairFile .= $diamondFile . ",";
+        
+    }
+    if ($PE == 1) { #assignment for paired reads
+        chop($pairFile);
+        if ($taxonomy ne "") { #taxonomy
+            $porcessCount++;
+            $process{$porcessCount} = async{ `assignment.pl -p $pairFile --gene-output gene_${serial}.txt --taxonomy $taxonomy --acc2taxid $acc2taxid --taxid2taxon $taxid2taxon --taxonomy-output taxon_${serial}.txt --tmp $tmp --max-equal $max_match --cutoff-ID-best $cutoff_best --min-best $min_best --all-lca $all_lca --min-lca $min_lca --cutoff-ID-lca $cutoff_lca --overlap $overlap` };
+        } else {
+            $porcessCount++;
+            $process{$porcessCount} = async{ `assignment.pl -p $pairFile --gene-output gene_${serial}.txt --tmp $tmp --overlap $overlap` };
+        }
+    }
+
+    foreach my $diamond (keys %all_fileSE) { #assignment for paired short reads or assembly contigs
+        
+        my $diamondFile = $diamond;
+        if ($diamond =~ /.gz$/) {
+            $diamondFile =~ s/.gz$/.tmp.gz/;
+        }
+        $diamondFile = "./" . $tmp . "/" . $diamondFile;
+        
+        `cp $diamond $diamondFile`;
+        if ($taxonomy ne "") { #taxonomy
+            $porcessCount++;
+            $process{$porcessCount} = async{ `assignment.pl -u $diamondFile --gene-output gene_${serial}.txt --taxonomy $taxonomy --acc2taxid $acc2taxid --taxid2taxon $taxid2taxon --taxonomy-output taxon_${serial}.txt --tmp $tmp --max-equal $max_match --cutoff-ID-best $cutoff_best --min-best $min_best --all-lca $all_lca --min-lca $min_lca --cutoff-ID-lca $cutoff_lca --overlap $overlap` };
+        } else {
+            $porcessCount++;
+            $process{$porcessCount} = async{ `assignment.pl -u $diamondFile --gene-output gene_${serial}.txt --tmp $tmp --overlap $overlap` };
+        }
+    }
+    
+} else { #multiple threads
+    
+    my %done;
+    my $count = 0;
+    my %seqFR = '';
+    
+    if ($pe == 1) { #assignment for paired reads
+        open(my $tmpF, ">./$tmp/SplitF_${serial}.tmp") or die;
+        open(my $tmpR, ">./$tmp/SplitR_${serial}.tmp") or die;
+        foreach my $diamond (keys %all_filePE) { #paired info
+            if ($pe == 1) {
+                $pe++;
+                if ($diamond =~ /.gz$/) {
+                    open(FILE, "gunzip -c $diamond |") or die "Coudn't open the file $diamond: $!";
+                } else {
+                    open(FILE, "<$diamond") or die "Coudn't open the file $diamond: $!";
+                }
+                while (defined(my $input = <FILE>)) {
+                    chomp($input);
+                    my ($seq, $rest) = split(/\t/, $input,2);
+                    $seqFR{$seq}{$rest} = '';
+                }
+            } else {
+                
+                if ($diamond =~ /.gz$/) {
+                    open(FILE, "gunzip -c $diamond |");
+                } else {
+                    open(FILE, "<$diamond");
+                }
+                while (defined(my $input = <FILE>)) {
+                    chomp($input);
+                    my ($seq, $rest) = split(/\t/, $input);
+                    $count++;
+                    if (($count >= $size) && (!(defined($done{$seq})))) {
+                        if (!(defined($done{$seq}))) {
+                            #print forward reads
+                            foreach my $info (keys %{$seqFR{$seq}}) {
+                                $count++;
+                                print $tmpF "$seq\t$info\n";
+                            }
+                        }
+                        undef %done;
+                        $count = 1;
+                        close($tmpF);
+                        close($tmpR);
+                        if ($taxonomy ne "") {
+                            $porcessCount++;
+                            $process{$porcessCount} = async{ `assignment.pl -p ./$tmp/SplitF_${serial}.tmp,./$tmp/SplitR_${serial}.tmp --gene-output gene_${serial}.txt --taxonomy $taxonomy --acc2taxid $acc2taxid --taxid2taxon $taxid2taxon --taxonomy-output taxon_${serial}.txt --tmp $tmp --max-equal $max_match --cutoff-ID-best $cutoff_best --min-best $min_best --all-lca $all_lca --min-lca $min_lca --cutoff-ID-lca $cutoff_lca --overlap $overlap` };
+                        } else {
+                            $porcessCount++;
+                            $process{$porcessCount} = async{ `assignment.pl -p ./$tmp/SplitF_${serial}.tmp,./$tmp/SplitR_${serial}.tmp --gene-output gene_${serial}.txt --tmp $tmp --overlap $overlap` };
+                        }
+                        $serial++;
+                        open($tmpF, ">./$tmp/SplitF_${serial}.tmp") or die;
+                        open($tmpR, ">./$tmp/SplitR_${serial}.tmp") or die;
+                        print $tmpR "$input\n";
+                    } else {
+                        if (!(defined($done{$seq}))) {
+                            #print forward reads
+                            foreach my $info (keys %{$seqFR{$seq}}) {
+                                $count++;
+                                print $tmpF "$seq\t$info\n";
+                            }
+                        }
+                        print $tmpR "$input\n";
+                        $done{$seq} = '';
+                    }
+                }
+            }
+            close(FILE);
+        }
+        
+        #launch assignment for last file
+        if ($taxonomy ne "") {
+            $porcessCount++;
+            $process{$porcessCount} = async{ `assignment.pl -p ./$tmp/SplitF_${serial}.tmp,./$tmp/SplitR_${serial}.tmp --gene-output gene_${serial}.txt --taxonomy $taxonomy --acc2taxid $acc2taxid --taxid2taxon $taxid2taxon --taxonomy-output taxon_${serial}.txt --tmp $tmp --max-equal $max_match --cutoff-ID-best $cutoff_best --min-best $min_best --all-lca $all_lca --min-lca $min_lca --cutoff-ID-lca $cutoff_lca --overlap $overlap` };
+        } else {
+            $porcessCount++;
+            $process{$porcessCount} = async{ `assignment.pl -p ./$tmp/SplitF_${serial}.tmp,./$tmp/SplitR_${serial}.tmp --gene-output gene_${serial}.txt --tmp $tmp --overlap $overlap` };
+        }
+    }
+    
+    if ($se == 1) { #assignment for paired short reads or assembly contigs
+        
+        open(my $tmpOUT, ">./$tmp/Split_${serial}.tmp") or die;
+        
+        foreach my $diamond (keys %all_fileSE) {
+            if ($diamond =~ /.gz$/) {
+                open(FILE, "gunzip -c $diamond |");
+            } else {
+                open(FILE, "<$diamond");
+            }
+            while (defined(my $input = <FILE>)) {
+                chomp($input);
+                my ($seq, $rest) = split(/\t/, $input);
+                $count++;
+                if (($count >= $size) && (!(defined($done{$seq})))) {
+                    undef %done;
+                    $count = 1;
+                    close($tmpOUT);
+                    if ($taxonomy ne "") {
+                        $porcessCount++;
+                        $process{$porcessCount} = async{ `assignment.pl -u ./$tmp/Split_${serial}.tmp --gene-output gene_${serial}.txt --taxonomy $taxonomy --acc2taxid $acc2taxid --taxid2taxon $taxid2taxon --taxonomy-output taxon_${serial}.txt --tmp $tmp --max-equal $max_match --cutoff-ID-best $cutoff_best --min-best $min_best --all-lca $all_lca --min-lca $min_lca --cutoff-ID-lca $cutoff_lca --overlap $overlap` };
+                    } else {
+                        $porcessCount++;
+                        $process{$porcessCount} = async{ `assignment.pl -u ./$tmp/Split_${serial}.tmp --gene-output gene_${serial}.txt --tmp $tmp --overlap $overlap` };
+                    }
+                    $serial++;
+                    open($tmpOUT, ">./$tmp/Split_${serial}.tmp") or die;
+                    print $tmpOUT "$input\tN\n";
+                } else {
+                    print $tmpOUT "$input\tN\n";
+                    $done{$seq} = '';
+                }
+            }
+            close(FILE);
+        }
+        
+        #launch assignment for last file
+        if ($taxonomy ne "") {
+            $porcessCount++;
+            $process{$porcessCount} = async{ `assignment.pl -u ./$tmp/Split_${serial}.tmp --gene-output gene_${serial}.txt --taxonomy $taxonomy --acc2taxid $acc2taxid --taxid2taxon $taxid2taxon --taxonomy-output taxon_${serial}.txt --tmp $tmp --max-equal $max_match --cutoff-ID-best $cutoff_best --min-best $min_best --all-lca $all_lca --min-lca $min_lca --cutoff-ID-lca $cutoff_lca --overlap $overlap` };
+        } else {
+            $porcessCount++;
+            $process{$porcessCount} = async{ `assignment.pl -u ./$tmp/Split_${serial}.tmp --gene-output gene_${serial}.txt --tmp $tmp --overlap $overlap` };
+        }
+    }
+}
+
+foreach my $p (sort keys %process) {
+    my $output = $process{$p}->join;
+}
+
+#format output files
+if ($th == 1) { #rename
+    if ($outGene eq '') {
+        `rm ./$tmp/gene_1.txt`;
+    } else {
+        `mv ./$tmp/gene_1.txt ./$outGene`;
+    }
+    if ($taxonomy ne '') {
+        `mv ./$tmp/taxon_1.txt ./$outTax`;
+    }
+    `cat ./$tmp/*.log > ./$tmp/longMeta.tmp.log`;
+} else { #merge gene files and rename
+    if ($outGene eq '') {
+        `rm ./$tmp/gene_*.txt`;
+    } else {
+        `cat ./$tmp/gene_*.txt > ./$outGene`;
+    }
+    if ($taxonomy ne '') {
+        `cat ./$tmp/taxon_*.txt > ./$outTax`;
+    }
+    `cat ./$tmp/*.log > ./$tmp/longMeta.tmp.log`;
+}
+
+#merge information in log file
+open(LOG, "<./$tmp/longMeta.tmp.log") or die "Coudn't open the file longMeta.tmp.log: $!";
+my %infoFinal;
+while (defined(my $input = <LOG>)) {
+    chomp($input);
+    if ($input =~ /^AVERAGE/) {
+        my @info = split(/\t/, $input);
+        $infoFinal{'AV1'}+= $info[1];
+        $infoFinal{'AV2'}+= $info[2];
+    } elsif ($input =~ /^DETAIL/) {
+        my @info = split(/\t/, $input);
+        $infoFinal{'DET'}{$info[2]} += $info[1];
+    } elsif ($input =~ /^BEST/) {
+        my @info = split(/\t/, $input);
+        $infoFinal{'BEST'} += $info[1];
+    } elsif ($input =~ /^LCA/) {
+        my @info = split(/\t/, $input);
+        $infoFinal{'LCA'} += $info[1];
+    } elsif ($input =~ /^ALL/) {
+        my @info = split(/\t/, $input);
+        $infoFinal{'ALL'} += $info[1];
+    }
+}
+close(LOG);
+
+print "The number of sequences in the Diamond file is $infoFinal{'ALL'}\n";
+
+my $div = sprintf("%.2f", ($infoFinal{'AV1'}/$infoFinal{'AV2'}));
+print "The average number of assigned genes per sequence is $div\n";
+
+foreach my $det (sort {$a <=> $b} keys %{$infoFinal{'DET'}}) {
+    if ($det == 1) {
+        print "$infoFinal{'DET'}{$det} of sequences have $det gene\n";
+    } else {
+        print "$infoFinal{'DET'}{$det} of sequences have $det genes\n";
+    }
+}
+
+if (defined($infoFinal{'BEST'})) {
+    print "The number of taxonomical assigned sequences with the BEST algorithm is $infoFinal{'BEST'}\n";
+}
+
+if (defined($infoFinal{'LCA'})) {
+    print "The number of taxonomical assigned sequences with the LCA algorithm is $infoFinal{'LCA'}\n";
+}
+
+`rm -r $tmp/*`;

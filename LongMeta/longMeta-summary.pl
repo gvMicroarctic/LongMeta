@@ -1,0 +1,272 @@
+#!/usr/bin/perl
+
+use strict;
+
+#Get assembly quality
+
+#usage: longMeta-summary [--help] [--assembly-input INPUT_FILE] [--type {fasta, fastq}] [--minimum-length POS_INTEGER] [--length-output OUTPUT_FILE] [--assembly-output OUTPUT_FILE]
+
+#help message
+if (($ARGV[0] eq '--help') or ($ARGV[0] eq '-h')) {
+    print "\nusage: longMeta-summary [--help] [--assembly-input INPUT_FILE] [--type {fasta, fastq}] [--minimum-length POS_INTEGER] [--length-output OUTPUT_FILE] [--assembly-output OUTPUT_FILE]\n\n";
+    
+    print "-h, --help\n\tshow help message\n\n";
+    
+    print "--assembly-input, -s INPUT_FILE\n\tassembly input file (fasta or fastq format)\n";
+    print "--type {fasta, fastq}\n\tassembly format. default: fasta\n";
+    print "--minimum-length, -min POS_INTEGER\n\tminimum length to consider. default: 0\n";
+    print "--assembly-output OUTPUT_FILE\n\tassembly output file, file containing only contigs longer than -min\n\n";
+    print "--length-output OUTPUT_FILE\n\tlength output file, tab-separated file reporting contigs and the correspondent lengths\n";
+    exit;
+}
+
+#check options
+my %args = @ARGV;
+
+my %allOption;
+$allOption{'--help'} = ''; $allOption{'-h'} = '';
+$allOption{'--assembly-input'} = ''; $allOption{'-s'} = '';
+$allOption{'--type'} = '';
+$allOption{'--minimum-length'} = ''; $allOption{'-min'} = '';
+$allOption{'--length-output'} = '';
+$allOption{'--assembly-output'} = '';
+
+foreach my $a (keys %args) {
+    if (!(defined($allOption{$a}))) {
+        print "Error: Invalid command option: $a. To print help message: longMeta-summary --help\n";
+        exit;
+    }
+}
+
+#import options
+
+#input file
+my $in = $args{'--assembly-input'};
+if ($in eq "") {
+    $in = $args{'-s'};
+}
+if ($in eq '') {
+    print "Error: --assembly-input must be specified. To print help message: longMeta-summary --help\n";
+    exit;
+} else {
+    if ($in =~ /.gz$/) {
+        if (-e $in) {
+            open(INFILE, "gunzip -c $in |");
+        } else {
+            print "Error: longMeta-summary cannot open $in. To print help message: longMeta-summary --help\n";
+            exit;
+        }
+    } else {
+        if (!(open(INFILE, "<$in"))) {
+            print "Error: longMeta-summary cannot open $in. To print help message: longMeta-summary --help\n";
+            exit;
+        }
+    }
+}
+
+#input file format
+my $type = $args{'--type'}; #whether file is in fasta or fastq format
+if ($type eq '') {
+    $type = 'fasta';
+} elsif (($type ne 'fasta') && ($type ne 'fastq')) {
+    print "Error: --type must be either fasta or fastq. To print help message: longMeta-summary --help\n";
+    exit;
+}
+
+#minimum length of the sequences to consider
+my $min = $args{'--minimum-length'}; #min contig length to keep
+if ($min eq "") {
+    $min = $args{'-min'};
+}
+
+if ($min eq "") {
+    $min = 0;
+} elsif ($min !~ /^\d+$/) {
+    print "Error: --minimum-length must be a positive integer. To print help message: longMeta-summary --help\n";
+    exit;
+}
+
+#output length file
+my $outLen = $args{'--length-output'};
+my $fileLen;
+if ($outLen ne "") {
+    if (!(open($fileLen, ">$outLen"))) {
+        print "Error: longMeta-summary cannot open $outLen. To print help message: longMeta-summary --help\n";
+        exit;
+    }
+}
+
+#output sequence file
+my $outSeq = $args{'--assembly-output'};
+my $fileSeq;
+if ($outSeq ne "") {
+    if (!(open($fileSeq, ">$outSeq"))) {
+        print "Error: longMeta-summary cannot open $outSeq. To print help message: longMeta-summary --help\n";
+        exit;
+    }
+}
+
+my $contigs = 0;
+my $total = 0;
+my $gc = 0;
+my $at = 0;
+my %lengths;
+
+if ($type eq 'fasta') { #read fasta file
+    my $len = 0;
+    my $seq;
+    my $input;
+    my $start = 0;
+    my $name;
+    while(defined($input = <INFILE>)) {
+        chomp($input);
+        if ($input =~ /^>/) {
+            if (($len >= $min) && ($start == 1)) {
+                my @comp = gc($seq);
+                $gc+= $comp[0];
+                $at+= $comp[1];
+                $lengths{$len}++;
+                $total+=$len;
+                $contigs++;
+                if ($outLen ne "") {
+                    print $fileLen "$name\t$len\n";
+                }
+                if ($outSeq ne "") {
+                    print $fileSeq ">$name\n$seq\n";
+                }
+            }
+            $len = 0;
+            $seq = '';
+            ($name) = $input =~ />(.*)/;
+        } else {
+            $len += length($input);
+            $start = 1;
+            $seq = $seq . $input;
+        }
+    }
+    if ($len >= $min) {
+        my @comp = gc($seq);
+        $gc+= $comp[0];
+        $at+= $comp[1];
+        $lengths{$len}++;
+        $total+=$len;
+        $contigs++;
+        if ($outLen ne "") {
+            print $fileLen "$name\t$len\n";
+        }
+        if ($outSeq ne "") {
+            print $fileSeq ">$name\n$seq\n";
+        }
+    }
+} else { #read fastq file
+    my $line = 0;
+    my $name;
+    my $len;
+    my $inside = 0;
+    while(defined(my $input = <INFILE>)) {
+        chomp($input);
+        $line++;
+        if ($line == 1) {
+            ($name) = $input =~ /@(.*)/;
+        } elsif ($line == 2) {
+            $len = length($input);
+            $inside = 0;
+            if ($len >= $min) {
+                $inside = 1;
+                $contigs++;
+                my @comp = gc($input);
+                $gc+= $comp[0];
+                $at+= $comp[1];
+                $lengths{$len}++;
+                $total+=$len;
+                if ($outLen ne "") {
+                    print $fileLen "$name\t$len\n";
+                }
+                if ($outSeq ne "") {
+                    print $fileSeq "\@$name\n$input\n";
+                }
+            }
+        } elsif ($line == 4) {
+            $line = 0;
+            if (($outSeq ne "") && ($inside == 1)) {
+                print $fileSeq "$input\n";
+            }
+        } else {
+            if (($outSeq ne "") && ($inside == 1)) {
+                print $fileSeq "$input\n";
+            }
+        }
+    }
+}
+
+close INFILE;
+
+if ($outLen ne "") {
+    close($fileLen);
+}
+
+if ($outSeq ne "") {
+    close($fileSeq);
+}
+
+my $min = '';
+my $max = 0;
+my @lengths;
+my $sum = 0;
+my $got = 0;
+my $nfifty;
+
+foreach my $length (sort {$b<=>$a} keys %lengths) {
+    push @lengths, $length;
+    my $n = $lengths{$length};
+    my $prod = ($n * $length);
+    $sum+=$prod;
+    if($got <1 && $sum > ($total/2)) {
+        $nfifty = $length;
+        $got++;
+    }
+    if (($min eq '') or ($length < $min)) {
+        $min = $length;
+    }
+    if ($length > $max) {
+        $max = $length;
+    }
+}
+
+my $gcp = int(100*($gc/($gc+$at)));
+my $mean = int($total/$contigs);
+my $median = $lengths[@lengths/2];
+
+#print specifics
+my $int1 = " " x (length($in) -length('File'));
+my $int1_1 = " " x (length('File') -length($in));
+my $int2 = " " x (length($contigs) -length('Contig number'));
+my $int2_1 = " " x (length('Contig number') -length($contigs));
+my $int3 = " " x (length($total) -length('Total bp'));
+my $int3_1 = " " x (length('Total bp') -length($total));
+my $int4 = " " x (length($mean) -length('Mean'));
+my $int4_1 = " " x (length('Mean') -length($mean));
+my $int5 = " " x (length($median) -length('median'));
+my $int5_1 = " " x (length('median') -length($median));
+my $int6 = " " x (length($max) -length('Max length'));
+my $int6_1 = " " x (length('Max length') -length($max));
+my $int7 = " " x (length($min) -length('Min length'));
+my $int7_1 = " " x (length('Min length') -length($min));
+my $int8 = " " x (length($nfifty) -length('n50'));
+my $int8_1 = " " x (length('n50') -length($nfifty));
+my $int9 = " " x (length($gcp) -length('GC%'));
+my $int9_1 = " " x (length('GC%') -length($gcp));
+
+print "\n |  File${int1}  |  Contig number${int2}  |  Total bp${int3}  |  Mean${int4}  |  Median${int5}  |  Max length${int6}  |  Min length${int7}  |  n50${int8}  |  GC%${int9}  |\n";
+print " |  $in${int1_1}  |  $contigs${int2_1}  |  $total${int3_1}  |  $mean${int4_1}  |  $median${int5_1}  |  $max${int6_1}  |  $min${int7_1}  |  $nfifty${int8_1}  |  $gcp${int9_1}  |\n\n";
+
+#calculate GC and AT base number
+sub gc {
+    my $seq = shift;
+    my $gcn = 0;
+    my $atn = 0;
+    while($seq =~ /[GC]/g){$gcn++;}
+    while($seq =~ /[AT]/g){$atn++;}
+    my @result = ("$gcn","$atn");
+    return @result;
+}

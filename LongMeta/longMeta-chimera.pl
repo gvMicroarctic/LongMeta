@@ -1,0 +1,675 @@
+#!/usr/bin/perl
+
+use POSIX;
+use strict;
+
+#Screen the assembly for chimeric contigs
+
+#usage: longMeta-chimera [--help] [--gene-input INPUT_FILE] [--taxonomy-input INPUT_FILE] [--assembly-input INPUT_FILE] [--length-input INPUT_FILE] [--gene-output OUTPUT_FILE] [--taxonomy-output OUTPUT_FILE] [--assembly-output OUTPUT_FILE] [--length-output OUTPUT_FILE] [--taxid2taxon DATABASE_FILE] [--acc2taxid DATABASE_FILE] [--taxon-rank {domain, phylum, class, order, family, genus, species}] [--ID-limit POS_INTEGER] [--cluster-limit POS_INTEGER]
+
+#help message
+if (($ARGV[0] eq '--help') or ($ARGV[0] eq '-h')) {
+    print "longMeta-chimera [--help] [--gene-input INPUT_FILE] [--taxonomy-input INPUT_FILE] [--assembly-input INPUT_FILE] [--length-input INPUT_FILE] [--gene-output OUTPUT_FILE] [--taxonomy-output OUTPUT_FILE] [--assembly-output OUTPUT_FILE] [--length-output OUTPUT_FILE] [--taxid2taxon DATABASE_FILE] [--acc2taxid DATABASE_FILE] [--taxon-rank {domain, phylum, class, order, family, genus, species}] [--ID-limit POS_INTEGER] [--cluster-limit POS_INTEGER]\n\n";
+    
+    print "-h, --help\n\tshow help message\n\n";
+    
+    print "--gene-input, -g INPUT_FILE\n\tgene input file\n";
+    print "--taxonomy-input, -t INPUT_FILE\n\ttaxonomy input file\n";
+    print "--taxid2taxon DATABASE_FILE\n\tdatabase file reporting taxids and taxonomy information\n";
+    print "--acc2taxid DATABASE_FILE\n\tdatabase file reporting accession numbers and taxids\n\n";
+    
+    print "Options:\n\n";
+    
+    print "--assembly-input, -s INPUT_FILE\n\tassembly input file\n";
+    print "--length-input, -l INPUT_FILE\n\tlength input file\n";
+    
+    print "--gene-output, -go OUTPUT_FILE\n\tgene output file\n";
+    print "--taxonomy-output, -to OUTPUT_FILE\n\ttaxonomy output file\n";
+    print "--assembly-output, -so OUTPUT_FILE\n\tassembly output file\n";
+    print "--length-output, -lo OUTPUT_FILE\n\tlength output file\n";
+    
+    print "--taxon-rank {domain, phylum, class, order, family, genus, species}\n\ttaxonomical level for chimera finding. default: genus\n";
+    print "--ID-limit POS_INTEGER\n\tminimum identity score to consider a gene coding region. default: 80\n";
+    print "--cluster-limit POS_INTEGER\n\tnumber of consecutive gene coding region assigned to the same taxon to divide the contig. default: 2\n\n";
+    
+    exit;
+}
+
+my %args = @ARGV;
+
+#check options
+my %allOption;
+$allOption{'--help'} = ''; $allOption{'-h'} = '';
+
+$allOption{'--gene-input'} = ''; $allOption{'-g'} = '';
+$allOption{'--taxonomy-input'} = ''; $allOption{'-t'} = '';
+$allOption{'--assembly-input'} = ''; $allOption{'-s'} = '';
+$allOption{'--length-input'} = ''; $allOption{'-l'} = '';
+
+$allOption{'--gene-output'} = ''; $allOption{'-go'} = '';
+$allOption{'--taxonomy-output'} = ''; $allOption{'-to'} = '';
+$allOption{'--assembly-output'} = ''; $allOption{'-so'} = '';
+$allOption{'--length-output'} = ''; $allOption{'-lo'} = '';
+
+$allOption{'--taxid2taxon'} = '';
+$allOption{'--acc2taxid'} = '';
+
+$allOption{'--taxon-rank'} = '';
+$allOption{'--ID-limit'} = '';
+$allOption{'--cluster-limit'} = '';
+
+foreach my $a (keys %args) {
+    if (!(defined($allOption{$a}))) {
+        print "Error: Invalid command option: $a. To print help message: longMeta-chimera --help\n";
+        exit;
+    }
+}
+
+#import options
+
+#gene input file
+my $cutIN = $args{'--gene-input'}; #gene input file
+if ($cutIN eq "") {
+    $cutIN = $args{'-g'};
+    if ($cutIN eq "") {
+        print "Error: --gene-input must be specified. To print help message: longMeta-chimera --help\n";
+        exit;
+    }
+}
+if ($cutIN =~ /.gz$/) {
+    if (-e $cutIN) {
+        open(GENE, "gunzip -c $cutIN |");
+    } else {
+        print "Error: longMeta-chimera cannot open $cutIN. To print help message: longMeta-chimera --help\n";
+        exit;
+    }
+} else {
+    if (!(open(GENE, "<$cutIN"))) {
+        print "Error: longMeta-chimera cannot open $cutIN. To print help message: longMeta-chimera --help\n";
+        exit;
+    }
+}
+
+#taxonomy input file
+my $taxoIN = $args{'--taxonomy-input'}; #taxonomy input file
+if ($taxoIN eq "") {
+    $taxoIN = $args{'-t'};
+    if ($taxoIN eq "") {
+        print "Error: --taxonomy-input must be specified. To print help message: longMeta-chimera --help\n";
+        exit;
+    }
+}
+if ($taxoIN ne "") {
+    if ($taxoIN =~ /.gz$/) {
+        if (-e $taxoIN) {
+            open(TAXO, "gunzip -c $taxoIN |");
+        } else {
+            print "Error: longMeta-chimera cannot open $taxoIN. To print help message: longMeta-chimera --help\n";
+            exit;
+        }
+    } else {
+        if (!(open(TAXO, "<$taxoIN"))) {
+            print "Error: longMeta-chimera cannot open $taxoIN. To print help message: longMeta-chimera --help\n";
+            exit;
+        }
+    }
+}
+
+
+#sequence input file
+my $contIN = $args{'--assembly-input'}; #taxonomy input file
+if ($contIN eq "") {
+    $contIN = $args{'-s'};
+}
+if ($contIN ne "") {
+    if ($contIN =~ /.gz$/) {
+        if (-e $contIN) {
+            open(CONT, "gunzip -c $contIN |");
+        } else {
+            print "Error: longMeta-chimera cannot open $contIN. To print help message: longMeta-chimera --help\n";
+            exit;
+        }
+    } else {
+        if (!(open(CONT, "<$contIN"))) {
+            print "Error: longMeta-chimera cannot open $contIN. To print help message: longMeta-chimera --help\n";
+            exit;
+        }
+    }
+}
+
+#length input file
+my $lengIN = $args{'--length-input'}; #length input file
+if ($lengIN eq "") {
+    $lengIN = $args{'-l'};
+}
+if ($lengIN ne "") {
+    if ($lengIN =~ /.gz$/) {
+        if (-e $lengIN) {
+            open(LENG, "gunzip -c $lengIN |");
+        } else {
+            print "Error: longMeta-chimera cannot open $lengIN. To print help message: longMeta-chimera --help\n";
+            exit;
+        }
+    } else {
+        if (!(open(LENG, "<$lengIN"))) {
+            print "Error: longMeta-chimera cannot open $lengIN. To print help message: longMeta-chimera --help\n";
+            exit;
+        }
+    }
+}
+
+#gene output file
+my $geneOUT = $args{'--gene-output'}; #gene output file
+my $fileGO;
+if ($geneOUT eq "") {
+    $geneOUT = $args{'-go'};
+}
+if ($geneOUT ne "") {
+    if (!(open($fileGO, ">$geneOUT"))) {
+        print "Error: longMeta-chimera cannot open $geneOUT. To print help message: longMeta-chimera --help\n";
+        exit;
+    }
+}
+
+#taxonomy output file
+my $taxoOUT = $args{'--taxonomy-output'}; #taxonomy output file
+my $fileTO;
+if ($taxoOUT eq "") {
+    $taxoOUT = $args{'-to'};
+}
+if ($taxoOUT ne "") {
+    if (!(open($fileTO, ">$taxoOUT"))) {
+        print "Error: longMeta-chimera cannot open $taxoOUT. To print help message: longMeta-chimera --help\n";
+        exit;
+    }
+}
+
+#contig output file
+my $contOUT = $args{'--assembly-output'}; #contig output file
+my $fileCO;
+if ($contOUT eq "") {
+    $contOUT = $args{'-so'};
+}
+if ($contOUT ne "") {
+    if (!(open($fileCO, ">$contOUT"))) {
+        print "Error: longMeta-chimera cannot open $contOUT. To print help message: longMeta-chimera --help\n";
+        exit;
+    }
+}
+
+#length output file
+my $lengOUT = $args{'--length-output'}; #length output file
+my $fileLO;
+if ($lengOUT eq "") {
+    $lengOUT = $args{'-lo'};
+}
+if ($lengOUT ne "") {
+    if (!(open($fileLO, ">$lengOUT"))) {
+        print "Error: longMeta-chimera cannot open $lengOUT. To print help message: longMeta-chimera --help\n";
+        exit;
+    }
+}
+
+#taxid to taxonomy database file
+my $taxid2taxon = $args{'--taxid2taxon'};
+if ($taxid2taxon ne "") {
+    if ($taxid2taxon =~ /.gz$/) {
+        if (-e $taxid2taxon) {
+            open(TAXA1, "gunzip -c $taxid2taxon |");
+        } else {
+            print "Error: longMeta-chimera cannot open $taxid2taxon. To print help message: longMeta-chimera --help\n";
+            exit;
+        }
+    } else {
+        if (!(open(TAXA1, "<$taxid2taxon"))) {
+            print "Error: longMeta-chimera cannot open $taxid2taxon. To print help message: longMeta-chimera --help\n";
+            exit;
+        }
+    }
+} else {
+    print "Error: --taxid2taxon must be specified. To print help message: longMeta-chimera --help\n";
+    exit;
+}
+
+#accession to taxid database file
+my $acc2taxid = $args{'--acc2taxid'}; #database file
+if ($acc2taxid ne "") {
+    if ($acc2taxid =~ /.gz$/) {
+        if (-e $acc2taxid) {
+            open(TAXA2, "gunzip -c $acc2taxid |");
+        } else {
+            print "Error: longMeta-chimera cannot open $acc2taxid. To print help message: longMeta-chimera --help\n";
+            exit;
+        }
+    } else {
+        if (!(open(TAXA2, "<$acc2taxid"))) {
+            print "Error: longMeta-chimera cannot open $acc2taxid. To print help message: longMeta-chimera --help\n";
+            exit;
+        }
+    }
+} else {
+    print "Error: --acc2taxid must be specified. To print help message: longMeta-chimera --help\n";
+    exit;
+}
+
+#taxon level parameter
+my $rankLEVEL = $args{'--taxon-rank'}; #default is genus
+if ($rankLEVEL eq "") {
+    $rankLEVEL = "genus";
+}
+my $rankINDEX;
+if ($rankLEVEL eq "species") {
+    $rankINDEX = 7;
+} elsif ($rankLEVEL eq "genus") {
+    $rankINDEX = 6;
+} elsif ($rankLEVEL eq "family") {
+    $rankINDEX = 5;
+} elsif ($rankLEVEL eq "order") {
+    $rankINDEX = 4;
+} elsif ($rankLEVEL eq "class") {
+    $rankINDEX = 3;
+} elsif ($rankLEVEL eq "phylum") {
+    $rankINDEX = 2;
+} elsif ($rankLEVEL eq "domain") {
+    $rankINDEX = 1;
+} else {
+    print "Error: --taxon-rank must be either domain, phylum, class, order, family, genus or species. To print help message: longMeta-chimera --help\n";
+    exit;
+}
+
+#identity score limit
+my $cutoffLEVEL = $args{'--ID-limit'};
+if ($cutoffLEVEL eq "") {
+    $cutoffLEVEL = 80;
+} elsif ($cutoffLEVEL !~ /^\d+$/) {
+    print "Error: --ID-limit must be a positive integer. To print help message: longMeta-chimera --help\n";
+    exit;
+}
+
+#number of consequent matches with same taxon assignment
+my $clusterLIMIT = $args{'--cluster-limit'};
+if ($clusterLIMIT eq "") {
+    $clusterLIMIT = 2;
+} elsif ($clusterLIMIT !~ /^\d+$/) {
+    print "Error: --cluster-limit must be a positive integer. To print help message: longMeta-chimera --help\n";
+    exit;
+}
+
+my %all_acc; #save all accession numbers
+my %all_contig; #save all contigs and associated genes and ID
+my %all_contigSUM;
+my $count;
+my $contig = 0;
+
+#open gene Diamond file
+while (defined(my $input = <GENE>)) {
+    chomp($input);
+    my @info =split(/\t/,$input);
+    if (!(defined($all_contigSUM{$info[0]}))) {
+        $count = 1;
+        $contig++;
+    }
+    $all_contig{$info[0]}{$count}{$info[1]}{'ID'} = $info[2]; #contig - count - gene - ID = ID;
+    
+    if ($info[6] < $info[7]) {
+        $all_contig{$info[0]}{$count}{$info[1]}{'S'} = $info[6]; #contig - count - gene - S = START;
+        $all_contig{$info[0]}{$count}{$info[1]}{'E'} = $info[7]; #contig - count - gene - E = END;
+    } else {
+        $all_contig{$info[0]}{$count}{$info[1]}{'S'} = $info[7]; #contig - count - gene - S = START;
+        $all_contig{$info[0]}{$count}{$info[1]}{'E'} = $info[6]; #contig - count - gene - E = END;
+    }
+    
+    $all_contigSUM{$info[0]}++;
+    $all_acc{$info[1]} = ''; #save all the database accession numbers
+    $count++;
+}
+close(GENE);
+
+print "The number of contigs is $contig\n";
+
+#import databases
+my %taxid;
+my %taxidUN;
+my %acc2taxon;
+my %specific;
+
+my @allINDEX = reverse(1..$rankINDEX);
+
+open(TAXA1, "<$taxid2taxon");
+
+while (defined(my $input = <TAXA1>)) {
+    chomp($input);
+    my @info =split(/\t/,$input);
+    $taxid{$info[0]} = $info[$rankINDEX]; #taxid = taxon at the rank-level of interest
+    $taxidUN{$info[$rankINDEX]}{$info[$rankINDEX]} = '';
+    for my $i (@allINDEX) {
+        $taxidUN{$info[$rankINDEX]}{$info[$i] . "_Unclassified"} = '';
+        $taxidUN{$info[$rankINDEX]}{$info[$i]} = '';
+    }
+    $specific{$info[$rankINDEX]} = $input; #taxon at specific rank = taxonomy
+}
+close(TAXA1);
+
+open(TAXA2, "<$acc2taxid");
+while (defined(my $input = <TAXA2>)) {
+    chomp($input);
+    my @info =split(/\t/,$input);
+    if (defined($all_acc{$info[0]})) { #if the acc number is the files
+        $acc2taxon{$info[0]} = $taxid{$info[1]}; #acc = taxid;
+    }
+}
+undef %taxid;
+undef %all_acc;
+close(TAXA2);
+
+my %check;
+
+foreach my $contig (keys %all_contig) { #contig
+    if ($all_contigSUM{$contig} > 1) { #if more of one gene was assigned to the contig
+        my $old = "";
+        foreach my $count (sort {$a <=> $b} keys %{$all_contig{$contig}}) { #in order on contigs
+            foreach my $gene (sort {$a <=> $b} keys %{$all_contig{$contig}{$count}}) {
+                if ($all_contig{$contig}{$count}{$gene}{'ID'} >= $cutoffLEVEL) {
+                    if (($acc2taxon{$gene} ne $old) && ($old ne "")) {
+                        $check{$contig}{$old} = ''; #contigs to check
+                        $check{$contig}{$acc2taxon{$gene}} = ''; #contigs to check
+                    }
+                    $old = $acc2taxon{$gene};
+                }
+            }
+        }
+    }
+}
+
+my $contigCHECK = scalar keys %check;
+print "The contigs to check are $contigCHECK\n"; #these are contigs that did not have all same genus (e.g.).
+
+my %checkMULTIPLE;
+my %cluster;
+my %allCLUSTER;
+
+foreach my $contig (keys %check) { #contig
+    my $indexC = 0;
+    my $old = "";
+    my %consecutive;
+    my %consecutiveSE;
+    my %allUN;
+    foreach my $count (sort {$a <=> $b} keys %{$all_contig{$contig}}) { #in order on contigs
+        foreach my $gene (sort {$a <=> $b} keys %{$all_contig{$contig}{$count}}) {
+            if ($all_contig{$contig}{$count}{$gene}{'ID'} >= $cutoffLEVEL) {
+                if (($acc2taxon{$gene} ne $old) or ($old eq "")) {
+                    $indexC++;
+                }
+                $consecutive{$acc2taxon{$gene}}{$indexC}++; #taxon - group number = consecutive occurances
+                $consecutiveSE{$acc2taxon{$gene}}{$indexC}{$all_contig{$contig}{$count}{$gene}{'S'}} = '';
+                $consecutiveSE{$acc2taxon{$gene}}{$indexC}{$all_contig{$contig}{$count}{$gene}{'E'}} = '';
+                $old = $acc2taxon{$gene};
+            }
+        }
+    }
+    my $insideTaxon = 0;
+    my $inside;
+    my $def;
+    my $defN;
+    foreach my $taxon (keys %consecutive) {
+        $inside = 0;
+        foreach my $count (sort {$a <=> $b} keys %{$consecutive{$taxon}}) {
+            if ($consecutive{$taxon}{$count} >= $clusterLIMIT) { #check if there are more clusters were there is more than one occurance.
+                $inside++;
+                my $min = 1000000000000000000000000000000000000000000;
+                my $max = 0;
+                foreach my $position (sort {$a <= $b} keys %{$consecutiveSE{$taxon}{$count}}) { #limits of the cluster
+                    if ($position < $min) {
+                        $min = $position;
+                    }
+                    if ($position > $max) {
+                        $max = $position;
+                    }
+                }
+                $cluster{$contig}{$count}{'min'} = $min;
+                $cluster{$contig}{$count}{'max'} = $max;
+                $allCLUSTER{$contig}{$count} = ''; #save all contigs and clusters with more than the clusterLIMIT
+            }
+            $cluster{$contig}{$count}{'taxon'} = $taxon;
+        }
+        if ($inside > 0) { #if the taxon if present with at least one occurance in any of the cluster.
+            $insideTaxon++;
+            if ($taxon =~ /Unclassified/g) {
+                $allUN{$taxon} = '';
+            } else {
+                $def = $taxon;
+                $defN++;
+            }
+        }
+    }
+    if ($insideTaxon > 1) { #if there is more than one cluster with many occurances inside.
+        if ($defN == 1) { #check if any of the cluster with more than one occurance was assigned to unclassfied pertinent taxa
+            foreach my $taxonUN (keys %allUN) {
+                if (!(defined($taxidUN{$def}{$taxonUN}))) {
+                    $checkMULTIPLE{$contig} = ''; #contigs to check
+                }
+            }
+        } else { #if it is 0, all the taxa are unclassfied at that level. if it is higher than one, more than one defined taxon is present.
+            $checkMULTIPLE{$contig} = ''; #contigs to check
+        }
+    }
+}
+
+
+my $contigCHECKMULTIPLE = scalar keys %checkMULTIPLE;
+my $chimeras = sprintf("%.3f",(($contigCHECKMULTIPLE/$contig)*100));
+print "#Chimeric contigs were searched at the $rankLEVEL level\n";
+print "#Total number of chimeric contig was $contigCHECKMULTIPLE which represent the ${chimeras}% of the imported contigs\n";
+
+
+my %finalCluster;
+
+foreach my $contig (keys %checkMULTIPLE) { #contig
+    my $old;
+    my $order = 0;
+    my %clusterNew;
+    my $minDiv;
+    my $sep;
+    my $cluMax;
+    foreach my $clu (sort {$a <=> $b} keys %{$cluster{$contig}}) {
+        if (defined($allCLUSTER{$contig}{$clu})) { #if this cluster was represented by more than clusterLIMIT sequences
+            if ($order == 0) {
+                $clusterNew{$clu}{'min'} = 1;
+                $clusterNew{$clu}{'max'} = $cluster{$contig}{$clu}{'max'};
+                $minDiv = $cluster{$contig}{$clu}{'max'};
+            } else {
+                $sep = ceil($minDiv + (($cluster{$contig}{$clu}{'min'} - $minDiv)/2));
+                $clusterNew{$cluMax}{'max'} = $sep;
+                $clusterNew{$clu}{'min'} = $sep + 1;
+                $clusterNew{$clu}{'max'} = $cluster{$contig}{$clu}{'max'};
+                $minDiv = $cluster{$contig}{$clu}{'max'};
+            }
+            $clusterNew{$clu}{'taxon'} = $cluster{$contig}{$clu}{'taxon'};
+            $order++;
+            $cluMax = $clu;
+        }
+    }
+    $clusterNew{$cluMax}{'max'} = 'END';
+    my $old;
+    my $max;
+    $order = 0;
+    my $newContig;
+    foreach my $clu (sort {$a <=> $b} keys %clusterNew) {
+        if ($order == 0) {
+            $order++;
+            $newContig = $contig . "_" . $order;
+            $finalCluster{$contig}{$newContig}{'MIN'} = $clusterNew{$clu}{'min'};
+        } else {
+            if ($old ne $clusterNew{$clu}{'taxon'}) {
+                $order++;
+                $finalCluster{$contig}{$newContig}{'TAX'} = $old;
+                $finalCluster{$contig}{$newContig}{'MAX'} = $max;
+                $newContig = $contig . "_" . $order;
+                $finalCluster{$contig}{$newContig}{'MIN'} = $clusterNew{$clu}{'min'};
+            }
+        }
+        $max = $clusterNew{$clu}{'max'};
+        $old = $clusterNew{$clu}{'taxon'};
+    }
+    $finalCluster{$contig}{$newContig}{'TAX'} = $old;
+    $finalCluster{$contig}{$newContig}{'MAX'} = 'END';
+}
+
+#output gene file
+if ($geneOUT ne "") {
+    if ($cutIN =~ /.gz$/) {
+    	open(GENE, "gunzip -c $cutIN |");
+    } else {
+    	open(GENE, "<$cutIN");
+    }
+    my $min;
+    while (defined(my $input = <GENE>)) {
+        chomp($input);
+        my ($contigOld, $rest) =split(/\t/,$input,2);
+        my @info =split(/\t/,$input);
+        my $printContig;
+
+        if (defined($finalCluster{$contigOld})) {
+            foreach my $contigNew (sort keys %{$finalCluster{$contigOld}}) {
+                if ($info[6] < $info[7]) {
+                    $min = $info[6];
+                } else {
+                    $min = $info[7];
+                }
+                if ($min >= $finalCluster{$contigOld}{$contigNew}{'MIN'}) {
+                    $printContig = $contigNew;
+                }
+            }
+            print $fileGO "$printContig\t$rest\n";
+        } else {
+            print $fileGO "$input\n";
+        }
+    }
+    close(GENE);
+    close($fileGO);
+}
+
+
+#output taxonomy file
+if ($taxoOUT ne "") {
+    while (defined(my $input = <TAXO>)) {
+        chomp($input);
+        my @info =split(/\t/,$input);
+        if (defined($finalCluster{$info[0]})) {
+            foreach my $contigNew (sort keys %{$finalCluster{$info[0]}}) {
+                print $fileTO "$contigNew";
+                my @infoTax = split(/\t/, $specific{$finalCluster{$info[0]}{$contigNew}{'TAX'}});
+                foreach my $index (1..7) {
+                    if ($index <= $rankINDEX) {
+                        print $fileTO "\t$infoTax[$index]";
+                    } else {
+                        print $fileTO "\t$finalCluster{$info[0]}{$contigNew}{'TAX'}_Unclassfied";
+                    }
+                }
+                print $fileTO "\n";
+            }
+        } else {
+            print $fileTO "$input\n";
+        }
+    }
+    close(TAXO);
+    close($fileTO);
+}
+
+#output contig file
+if ($contOUT ne "") {
+    my $seq;
+    my $name;
+    my $nameOri;
+    while (defined(my $input = <CONT>)) {
+        chomp($input);
+        if ($input =~ /^>/) {
+            if (defined($finalCluster{$name})) {
+                foreach my $contigNew (sort keys %{$finalCluster{$name}}) {
+                    my $nameOri1 = $nameOri;
+                    if ($finalCluster{$name}{$contigNew}{'MAX'} eq 'END') {
+                        my $seqNew = substr($seq, $finalCluster{$name}{$contigNew}{'MIN'});
+                        $nameOri1 =~ s/$name/$contigNew/g;
+                        print $fileCO "$nameOri1\n$seqNew\n";
+                    } else {
+                        my $diff = $finalCluster{$name}{$contigNew}{'MAX'} - $finalCluster{$name}{$contigNew}{'MIN'};
+                        my $seqNew = substr($seq, $finalCluster{$name}{$contigNew}{'MIN'}, $diff);
+                        $nameOri1 =~ s/$name/$contigNew/g;
+                        print $fileCO "$nameOri1\n$seqNew\n";
+                    }
+                }
+            } else {
+                if ($seq ne '') {
+                    print $fileCO "$nameOri\n$seq\n";
+                }
+            }
+            if ($input =~ /\s+/) {
+                ($name) = $input =~ /^>(.*?) /;
+            } else {
+                ($name) = $input =~ /^>(.*)/;
+            }
+            $nameOri = $input;
+            $seq = '';
+        } else {
+            $seq .= $input;
+        }
+    }
+    
+    #include last sequence
+    if (defined($finalCluster{$name})) {
+        foreach my $contigNew (sort keys %{$finalCluster{$name}}) {
+            my $nameOri1 = $nameOri;
+            if ($finalCluster{$name}{$contigNew}{'MAX'} eq 'END') {
+                my $seqNew = substr($seq, $finalCluster{$name}{$contigNew}{'MIN'});
+                $nameOri1 =~ s/$name/$contigNew/g;
+                print $fileCO "$nameOri1\n$seqNew\n";
+            } else {
+                my $diff = $finalCluster{$name}{$contigNew}{'MAX'} - $finalCluster{$name}{$contigNew}{'MIN'};
+                my $seqNew = substr($seq, $finalCluster{$name}{$contigNew}{'MIN'}, $diff);
+                $nameOri1 =~ s/$name/$contigNew/g;
+                print $fileCO "$nameOri1\n$seqNew\n";
+            }
+        }
+    } else {
+        if ($seq ne '') {
+            print $fileCO "$nameOri\n$seq\n";
+        }
+    }
+    
+    close(CONT);
+    close($fileCO);
+}
+
+#output length file
+if ($lengOUT ne "") {
+    while (defined(my $input = <LENG>)) {
+        chomp($input);
+        my @info = split(/\t/,$input);
+        my $name;
+        my $nameOri = $info[0];
+        if ($info[0] =~ /\s+/) {
+            ($name) = $info[0] =~ /^(.*?) /;
+        } else {
+            ($name) = $info[0] =~ /^(.*)/;
+        }
+        
+        if (defined($finalCluster{$name})) {
+            foreach my $contigNew (sort keys %{$finalCluster{$name}}) {
+                my $nameOri1 = $nameOri;
+                if ($finalCluster{$name}{$contigNew}{'MAX'} eq 'END') {
+                    my $diff = ($info[1] - $finalCluster{$name}{$contigNew}{'MIN'}) +1 ;
+                    $nameOri1 =~ s/$name/$contigNew/g;
+                    print $fileLO "$nameOri1\t$diff\n";
+                } else {
+                    my $diff = ($finalCluster{$name}{$contigNew}{'MAX'} - $finalCluster{$name}{$contigNew}{'MIN'}) +1;
+                    $nameOri1 =~ s/$name/$contigNew/g;
+                    print $fileLO "$nameOri1\t$diff\n";
+                }
+            }
+        } else {
+            print $fileLO "$input\n";
+        }
+    }
+    close(LENG);
+    close($fileLO);
+}
