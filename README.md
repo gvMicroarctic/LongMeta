@@ -2,7 +2,7 @@
 
 This is a pipeline for the annotation of long reads such as assembly contigs. We suggest to use this pipeline only on shallow environmental assemblies where a gene prediction approach for functional annotation is not applicable. Some of this steps can also be applied for Nanopore read annotation.
 
-Click here to see how the LongMeta pipeline was applied to environmental data.
+Click [here](forefield_study.md) to see how the LongMeta pipeline was applied to environmental data.
 
 #### Database
 
@@ -11,11 +11,11 @@ Different databases are used in this pipeline. All the database files can be dow
 These are the formatted datasets for the NCBI-nr database v5. These datasets are updated every two months (if case the nr.gz was updated on the the NCBI website).
 
 - [nr.gz](https://www.cerealsdb.uk.net/LongMeta/nr.gz) [67 Gb] : NCBI blast protein database.
-- [accession_taxid.txt] (https://www.cerealsdb.uk.net/LongMeta/accession_taxid.txt) [4.5 Gb] : file with nr accession number and taxid correspondence
-- [taxid_taxonomy.txt] (https://www.cerealsdb.uk.net/LongMeta/taxid_taxonomy.txt) [239 Mb]: tab-separated file
-- [accession_protein.txt] (https://www.cerealsdb.uk.net/LongMeta/accession_protein.txt) [9.9 Gb] :
-- [accession_GO.txt] (https://www.cerealsdb.uk.net/LongMeta/accession_GO.txt) [1.6 Gb] :
-- [GO.txt] (https://www.cerealsdb.uk.net/LongMeta/GO.txt) [3.6 Mb] :
+- [accession_taxid.txt](https://www.cerealsdb.uk.net/LongMeta/accession_taxid.txt) [4.5 Gb] : tab-separated file reporting the protein accession numbers and the accociated taxids.
+- [taxid_taxonomy.txt](https://www.cerealsdb.uk.net/LongMeta/taxid_taxonomy.txt) [239 Mb]: tab-separated file reporting the taxids and the associated taxonomical paths.
+- [accession_protein.txt](https://www.cerealsdb.uk.net/LongMeta/accession_protein.txt) [9.9 Gb] : tab-separated file reporting the protein accession numbers and the associated protein names.
+- [accession_GO.txt](https://www.cerealsdb.uk.net/LongMeta/accession_GO.txt) [1.6 Gb] : tab-separated file reporting the protein accession numbers and the associated Gene Ontology (GO) accession codes.
+- [GO.txt](https://www.cerealsdb.uk.net/LongMeta/GO.txt) [3.6 Mb] : tab-separated file reporting the GO codes, the GO and the associated GO names and ontologies.
 
 Here's a snapshot of the format of these profiles
 
