@@ -6,11 +6,11 @@ use threads;
 
 #Assign Diamond file with taxonomy and functionality information
 
-#usage: longMeta-assignment [--help] [--tmp TEMPORARY_FOLDER] [--threads POS_INTEGER] [--assembly INPUT_FILE] [--paired-read INPUT_FILE] [--unpaired-read INPUT_FILE] [--gene-output FILE_OUTPUT] [--taxonomy-output FILE_OUTPUT] [--taxonomy {h, b, l}] [--taxid2taxon DATABASE_FILE] [--acc2taxid DATABASE_FILE] [--max-equal POS_INTEGER] [--cutoff-ID-best POS_INTEGER] [--min-best POS_INTEGER] [--all-lca {mixed, gene, all}] [--min-lca POS_INTEGER] [--cutoff-ID-lca POS_INTEGER]
+#usage: longMeta-assignment [--help] [--tmp TEMPORARY_FOLDER] [--threads POS_INTEGER] [--assembly INPUT_FILE] [--paired-read INPUT_FILE] [--unpaired-read INPUT_FILE] [--gene-output FILE_OUTPUT] [--taxonomy-output FILE_OUTPUT] [--taxonomy {h, b, l}] [--acc2taxid DATABASE_FILE] [--taxid2taxon DATABASE_FILE] [--max-equal POS_INTEGER] [--cutoff-ID-best POS_INTEGER] [--min-best POS_INTEGER] [--all-lca {mixed, gene, all}] [--min-lca POS_INTEGER] [--cutoff-ID-lca POS_INTEGER]
 
 #help message
 if (($ARGV[0] eq '--help') or ($ARGV[0] eq '-h')) {
-    print "usage: longMeta-assignment [--help] [--tmp TEMPORARY_FOLDER] [--threads POS_INTEGER] [--assembly INPUT_FILE] [--paired-read INPUT_FILE] [--unpaired-read INPUT_FILE] [--gene-output FILE_OUTPUT] [--taxonomy-output FILE_OUTPUT] [--taxonomy {h, b, l}] [--taxid2taxon DATABASE_FILE] [--acc2taxid DATABASE_FILE] [--max-equal POS_INTEGER] [--cutoff-ID-best POS_INTEGER] [--min-best POS_INTEGER] [--all-lca {mixed, gene, all}] [--min-lca POS_INTEGER] [--cutoff-ID-lca POS_INTEGER]\n\n";
+    print "usage: longMeta-assignment [--help] [--tmp TEMPORARY_FOLDER] [--threads POS_INTEGER] [--assembly INPUT_FILE] [--paired-read INPUT_FILE] [--unpaired-read INPUT_FILE] [--gene-output FILE_OUTPUT] [--taxonomy-output FILE_OUTPUT] [--taxonomy {h, b, l}] [--acc2taxid DATABASE_FILE] [--taxid2taxon DATABASE_FILE] [--max-equal POS_INTEGER] [--cutoff-ID-best POS_INTEGER] [--min-best POS_INTEGER] [--all-lca {mixed, gene, all}] [--min-lca POS_INTEGER] [--cutoff-ID-lca POS_INTEGER]\n\n";
     
     print "--help, -h\n\tshow help message\n";
     print "--threads POS_INTEGER\n\tnumber of threads\n\n";
@@ -26,8 +26,8 @@ if (($ARGV[0] eq '--help') or ($ARGV[0] eq '-h')) {
     
     print "Options for taxonomy assignment:\n\n";
     print "--taxonomy-output FILE_OUTPUT\n\ttaxonomy output file\n";
-    print "--taxid2taxon DATABASE_FILE\n\tdatabase file reporting taxids and taxonomy information\n";
-    print "--acc2taxid DATABASE_FILE\n\tdatabase file reporting accession numbers and taxids\n";
+    print "--acc2taxid DATABASE_FILE\n\ttab delimited file reporting the protein accession numbers and the associated taxids\n";
+    print "--taxid2taxon DATABASE_FILE\n\ttab delimited file reporting the taxids and the associated taxonomical paths\n";
     print "--taxonomy {h, b, l}\n\tpipeline for the taxonomy assignment. h stands for hybrid, l for lca and b for best. default: h\n";
     print "--max-equal POS_INTEGER\n\tmaximum number of sequences to be used for taxonomical classification when sequences with the same Diamond identity score and bit-score were assigned to the same sequence area. If not specified, LongMeta uses all the sequences\n";
     print "--cutoff-ID-best POS_INTEGER\n\tidentity score value to consider a Diamond alignment for the BEST algorithm. default: 80\n";

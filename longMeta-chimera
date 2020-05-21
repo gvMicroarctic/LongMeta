@@ -5,18 +5,18 @@ use strict;
 
 #Screen the assembly for chimeric contigs
 
-#usage: longMeta-chimera [--help] [--gene-input INPUT_FILE] [--taxonomy-input INPUT_FILE] [--assembly-input INPUT_FILE] [--length-input INPUT_FILE] [--gene-output OUTPUT_FILE] [--taxonomy-output OUTPUT_FILE] [--assembly-output OUTPUT_FILE] [--length-output OUTPUT_FILE] [--taxid2taxon DATABASE_FILE] [--acc2taxid DATABASE_FILE] [--taxon-rank {domain, phylum, class, order, family, genus, species}] [--ID-limit POS_INTEGER] [--cluster-limit POS_INTEGER]
+#usage: longMeta-chimera [--help] [--gene-input INPUT_FILE] [--taxonomy-input INPUT_FILE] [--assembly-input INPUT_FILE] [--length-input INPUT_FILE] [--gene-output OUTPUT_FILE] [--taxonomy-output OUTPUT_FILE] [--assembly-output OUTPUT_FILE] [--length-output OUTPUT_FILE] [--acc2taxid DATABASE_FILE] [--taxid2taxon DATABASE_FILE] [--taxon-rank {domain, phylum, class, order, family, genus, species}] [--ID-limit POS_INTEGER] [--cluster-limit POS_INTEGER]
 
 #help message
 if (($ARGV[0] eq '--help') or ($ARGV[0] eq '-h')) {
-    print "longMeta-chimera [--help] [--gene-input INPUT_FILE] [--taxonomy-input INPUT_FILE] [--assembly-input INPUT_FILE] [--length-input INPUT_FILE] [--gene-output OUTPUT_FILE] [--taxonomy-output OUTPUT_FILE] [--assembly-output OUTPUT_FILE] [--length-output OUTPUT_FILE] [--taxid2taxon DATABASE_FILE] [--acc2taxid DATABASE_FILE] [--taxon-rank {domain, phylum, class, order, family, genus, species}] [--ID-limit POS_INTEGER] [--cluster-limit POS_INTEGER]\n\n";
+    print "usage: longMeta-chimera [--help] [--gene-input INPUT_FILE] [--taxonomy-input INPUT_FILE] [--assembly-input INPUT_FILE] [--length-input INPUT_FILE] [--gene-output OUTPUT_FILE] [--taxonomy-output OUTPUT_FILE] [--assembly-output OUTPUT_FILE] [--length-output OUTPUT_FILE] [--acc2taxid DATABASE_FILE] [--taxid2taxon DATABASE_FILE] [--taxon-rank {domain, phylum, class, order, family, genus, species}] [--ID-limit POS_INTEGER] [--cluster-limit POS_INTEGER]\n\n";
     
     print "-h, --help\n\tshow help message\n\n";
     
     print "--gene-input, -g INPUT_FILE\n\tgene input file\n";
     print "--taxonomy-input, -t INPUT_FILE\n\ttaxonomy input file\n";
-    print "--taxid2taxon DATABASE_FILE\n\tdatabase file reporting taxids and taxonomy information\n";
-    print "--acc2taxid DATABASE_FILE\n\tdatabase file reporting accession numbers and taxids\n\n";
+    print "--acc2taxid DATABASE_FILE\n\ttab delimited file reporting the protein accession numbers and the associated taxids\n\n";
+    print "--taxid2taxon DATABASE_FILE\n\ttab delimited file reporting the taxids and the associated taxonomical paths\n\n";
     
     print "Options:\n\n";
     

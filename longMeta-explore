@@ -4,7 +4,7 @@ use strict;
 
 #Explore dataset created with longMeta
 
-#usage: longMeta-explore [--help] [--taxonomy-input INPUT_FILE] [--sam-input INPUT_FILE] [--length-input INPUT_FILE] [--output-folder OUTPUT_FOLDER] [--ignore_uncl {yes,no}] [--perc-limit POS_NUMBER] [--phyla-exclusion {yes,no}] [--gene-input INPUT_FILE] [--acc2gene DATABASE_FILE] [--acc2go DATABASE_FILE] [--read-length POS_INTEGER] [--alignment-AS NUMBER] [--output-type {gene,GO}]
+#usage: longMeta-explore [--help] [--input-folder INPUT_FOLDER] [--gene STRING] [--go {go-numbers}] [--go-name STRING] [--go-ontology {molecular_function, biological_process, cellular_component}] [--taxon STRING] [--taxon-rank {domain, phylum, class, order, family, genus}] [--output-file OUTPUT_FILE] [--go2def DATABASE] [--output-type {gene,GO}]
 
 #help message
 if (($ARGV[0] eq '--help') or ($ARGV[0] eq '-h')) {
@@ -13,18 +13,17 @@ if (($ARGV[0] eq '--help') or ($ARGV[0] eq '-h')) {
     print "--help, -h\n\tshow help message\n\n";
     
     print "--input-folder, -in INPUT_FOLDER\n\tlongMeta folder created in the previous steps of the pipeline\n";
+    print "--output-file, -out OUTPUT_FILE\n\toutput file reporting the genes of interest\n";
+    print "--gene, -g STRING\n\tpartial or entire gene name to use for gene retrieval. If the name is made up from more than one word, they must be enclosed in quotation marks. Special characters (e.g. ` or /) must be escaped with \‘\\’. Write ‘all’ if all the genes must be retrieved.\n\n";
     
-    print "--gene, -g STRING\n\tpartial or entire gene name to use for gene retrieval. If the name is made up from more than one word, they must be enclosed in quotation marks. Special characters (e.g. ` or /) must be escaped with \‘\\’. Write ‘all’ if all the genes must be retrieved.\n";
-    print "--go-accession, -ga GO_CODE\n\tgene ontology code to use for gene retrival\n";
-    print "--go-name, -gn STRING\n\tgene ontology name (or part) to use for gene retrival\n\n";
-    print "--go-ontology, -go {molecular_function, biological_process, cellular_component}\n\tgene ontology category\n";
-    
-    print "--go2def, DATABASE\n\tgene ontology database\n";
+    print "Options:\n\n";
     
     print "--taxon, -t STRING\n\ttaxa (comma-separated)\n";
     print "--taxon-rank, -r {domain, phylum, class, order, family, genus}\n\trank of --taxon\n";
-    
-    print "--output-file, -out OUTPUT_FILE\n\toutput file reporting the genes of interest\n";
+    print "--go-accession, -ga GO_CODE\n\tgene ontology code to use for gene retrival\n";
+    print "--go-name, -gn STRING\n\tgene ontology name (or part) to use for gene retrival\n";
+    print "--go-ontology, -go {molecular_function, biological_process, cellular_component}\n\tgene ontology category\n";
+    print "--go2def, DATABASE\n\ttab delimited file reporting the GO codes, the GO and the associated GO names and ontologies\n";
     print "--output-type {gene,GO}\n\toutput type\n\n";
     
     exit;

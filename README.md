@@ -11,13 +11,24 @@ Different databases are used in this pipeline. All the database files can be dow
 These are the formatted datasets for the NCBI-nr database v5. These datasets are updated every two months (if case the nr.gz was updated on the the NCBI website).
 
 - [nr.gz](https://www.cerealsdb.uk.net/LongMeta/nr.gz) [67 Gb] : NCBI blast protein database.
-- [accession_taxid.txt](https://www.cerealsdb.uk.net/LongMeta/accession_taxid.txt) [4.5 Gb] : tab-separated file reporting the protein accession numbers and the accociated taxids.
-- [taxid_taxonomy.txt](https://www.cerealsdb.uk.net/LongMeta/taxid_taxonomy.txt) [239 Mb]: tab-separated file reporting the taxids and the associated taxonomical paths.
-- [accession_protein.txt](https://www.cerealsdb.uk.net/LongMeta/accession_protein.txt) [9.9 Gb] : tab-separated file reporting the protein accession numbers and the associated protein names.
-- [accession_GO.txt](https://www.cerealsdb.uk.net/LongMeta/accession_GO.txt) [1.6 Gb] : tab-separated file reporting the protein accession numbers and the associated Gene Ontology (GO) accession codes.
-- [GO.txt](https://www.cerealsdb.uk.net/LongMeta/GO.txt) [3.6 Mb] : tab-separated file reporting the GO codes, the GO and the associated GO names and ontologies.
+- [accession_taxid.txt](https://www.cerealsdb.uk.net/LongMeta/accession_taxid.txt) [4.5 Gb] : tab delimited file reporting the protein accession numbers and the associated taxids.
+- [taxid_taxonomy.txt](https://www.cerealsdb.uk.net/LongMeta/taxid_taxonomy.txt) [239 Mb]: tab delimited file reporting the taxids and the associated taxonomical paths.
+- [accession_protein.txt](https://www.cerealsdb.uk.net/LongMeta/accession_protein.txt) [9.9 Gb] : tab delimited file reporting the protein accession numbers and the associated protein names.
+- [accession_GO.txt](https://www.cerealsdb.uk.net/LongMeta/accession_GO.txt) [1.6 Gb] : tab delimited file reporting the protein accession numbers and the associated Gene Ontology (GO) accession codes.
+- [GO.txt](https://www.cerealsdb.uk.net/LongMeta/GO.txt) [3.6 Mb] : tab delimited file reporting the GO codes, the GO and the associated GO names and ontologies.
 
-Here's a snapshot of the format of these profiles
+The database files are pretty massive, you may want to download them with wget
+
+```bash
+wget https://www.cerealsdb.uk.net/LongMeta/nr.gz
+wget https://www.cerealsdb.uk.net/LongMeta/accession_taxid.txt
+wget https://www.cerealsdb.uk.net/LongMeta/taxid_taxonomy.txt
+wget https://www.cerealsdb.uk.net/LongMeta/accession_protein.txt
+wget https://www.cerealsdb.uk.net/LongMeta/accession_GO.txt
+wget https://www.cerealsdb.uk.net/LongMeta/GO.txt
+```
+
+Here's a snapshot of the format of these databases
 
 ```bash
 zcat nr.gz | head
@@ -95,91 +106,84 @@ head go.txt
 
 #### Getting started
 
-1. Download the folder longMeta
+1. Download the folder LongMeta repository
+
 ```bash
-wget XXXlink to gitHUB ##add gitHUB link
-```
-2. Give the correct permissions to the scripts
-```bash
-cd GitHUB
-chmod +x longMeta/* #check if they come with correct permissions already
-```
-3. Move the scripts to your bin or set it in your PATH
-```bash
-export PATH={path-to-longMeta}/longMeta:$PATH
+git clone https://github.com/gvMicroarctic/LongMeta
 ```
 
-#### Detailed option command line
+2. Move the scripts to your bin or set the LongMeta folder in your PATH
+```bash
+export PATH="$PATH:{path-to-LongMeta}/LongMeta"
+```
 
-LongMeta consists in 5 different scripts:
+#### Detailed command line options
 
-1. longMeta-summary
-2. longMeta-assignment
-3. longMeta-chimera
-4. longMeta-abundance
-5. longMeta-explore
-6. longMeta-relative
+LongMeta pipeline consists of 6 different scripts:
 
-
-1. Assembly summary : longMeta-summary
+##### 1. Assembly summary : longMeta-summary
 
 The script longMeta-summary is used to check and trim the assembly (if needed).
 
 ```bash
-longMeta-summary [--help] [--sequence-input INPUT_FILE] [--type {fasta, fastq}] [--minimum-length POS_INTEGER] [--length-output OUTPUT_FILE] [--sequence-output OUTPUT_FILE]
+usage: longMeta-summary [--help] [--assembly-input INPUT_FILE] [--type {fasta, fastq}] [--minimum-length POS_INTEGER] [--length-output OUTPUT_FILE] [--assembly-output OUTPUT_FILE]
 
 -h, --help
 	show help message
 
---sequence-input, -s INPUT_FILE
-	assembly file
+--assembly-input, -s INPUT_FILE
+	assembly input file
 
-OPTIONAL
+Options:
 
 --type {fasta, fastq}
-	format of input file. default: fasta
+	assembly format. default: fasta
 --minimum-length, -min POS_INTEGER
 	minimum length to consider. default: 0
+--assembly-output OUTPUT_FILE
+	assembly output file, file containing only contigs longer than -min
 --length-output OUTPUT_FILE
-	file reporting contigs and the correspondent lengths, only for contigs longer than -min
---sequence-output OUTPUT_FILE
-	file reporting contigs, only for contigs longer than -min
+	length output file, tab delimited file reporting contigs and the correspondent lengths
 ```
 
-2. Assignment : longMeta-assignment
+##### 2. Assignment : longMeta-assignment
 
-The script longMeta-assignment assign taxonomy and functionality to each contig. This script works with Diamond which can be found XXXX. It outputs only Diamond matches that have been identified as the best matches and a file with contig and associated taxonomy.
+The script longMeta-assignment assigns taxonomy and functionality to each contig.
 
 ```bash
-longMeta-assignment [--help] [--tmp TEMPORARY_FOLDER] [--threads POS_INTEGER] [--assembly INPUT_FILE] [--paired-read INPUT_FILE] [--unpaired-read INPUT_FILE] [--gene-output FILE_OUTPUT] [--taxonomy-output FILE_OUTPUT] [--taxonomy {h, b, l}] [--taxid2taxon DATABASE_FILE] [--acc2taxid DATABASE_FILE] [--max-equal POS_INTEGER] [--cutoff-ID-best POS_INTEGER] [--min-best POS_INTEGER] [--all-lca {mixed, gene, all}] [--min-lca POS_INTEGER] [--cutoff-ID-lca POS_INTEGER]
+usage: longMeta-assignment [--help] [--tmp TEMPORARY_FOLDER] [--threads POS_INTEGER] [--assembly INPUT_FILE] [--paired-read INPUT_FILE] [--unpaired-read INPUT_FILE] [--gene-output FILE_OUTPUT] [--taxonomy-output FILE_OUTPUT] [--taxonomy {h, b, l}] [--acc2taxid DATABASE_FILE] [--taxid2taxon DATABASE_FILE] [--max-equal POS_INTEGER] [--cutoff-ID-best POS_INTEGER] [--min-best POS_INTEGER] [--all-lca {mixed, gene, all}] [--min-lca POS_INTEGER] [--cutoff-ID-lca POS_INTEGER]
 
 --help, -h
 	show help message
---tmp TEMPORARY_FOLDER
-	temporary folder
 --threads POS_INTEGER
 	number of threads
 
+--tmp TEMPORARY_FOLDER
+	temporary folder
 --assembly, -a INPUT_FILE
-	Diamond file for assembly
+	Diamond file for assembly (blast tabular format)
 --paired-read, -p INPUT_FILE
-	Diamond file for paired reads (comma separated files)
+	Diamond file for paired reads (comma separated files) (blast tabular format)
 --unpaired-read, -u INPUT_FILE
-	Diamond file for unpaired reads (comma separated files)
+	Diamond file for unpaired reads (comma separated files) (blast tabular format)
+
+Options for gene assignment:
 
 --gene-output FILE_OUTPUT
-	output gene file
-
---taxonomy-output FILE_OUTPUT
-	output taxonomy file
---taxonomy {h, b, l}
-	pipeline for the taxonomy assignment. h stands for hybrid, l for lca and b for best. default: h
---taxid2taxon DATABASE_FILE
-	database file reporting taxids and taxonomy information
---acc2taxid DATABASE_FILE
-	database file reporting accession numbers and taxids
+	gene output file
+--overlap POS_INTEGER
+	maximum number of overlapping bases between gene coding regions
 
 Options for taxonomy assignment:
+
+--taxonomy-output FILE_OUTPUT
+	taxonomy output file
+--acc2taxid DATABASE_FILE
+	tab delimited file reporting the protein accession numbers and the associated taxids
+--taxid2taxon DATABASE_FILE
+	tab delimited file reporting the taxids and the associated taxonomical paths
+--taxonomy {h, b, l}
+	pipeline for the taxonomy assignment. h stands for hybrid, l for lca and b for best. default: h
 --max-equal POS_INTEGER
 	maximum number of sequences to be used for taxonomical classification when sequences with the same Diamond identity score and bit-score were assigned to the same sequence area. If not specified, LongMeta uses all the sequences
 --cutoff-ID-best POS_INTEGER
@@ -191,85 +195,81 @@ Options for taxonomy assignment:
 	minimum number of sequences needed to run the LCA algorithm on only gene-assigned matches. default: 3. (to use with --all-lca mixed)
 --cutoff-ID-lca POS_INTEGER
 	minimum identity score to give more weight to a certain Diamond alignment. default: 80
-
-Options for gene assignment:
---overlap POS_INTEGER
-	maximum number of overlapping bases between gene coding regions
-
 ```
 
-3. Chimera detection (optional) : longMeta-chimera
+##### 3. Chimera detection : longMeta-chimera
 
-The script longMeta-chimera screens for chimeric contigs.
+The script longMeta-chimera screens the assembly for chimeric contigs.
 
 ```bash
-longMeta-chimera [--help] [--gene-input INPUT_FILE] [--taxonomy-input INPUT_FILE] [--sequence-input INPUT_FILE] [--length-input INPUT_FILE] [--gene-output OUTPUT_FILE] [--taxonomy-output OUTPUT_FILE] [--sequence-output OUTPUT_FILE] [--length-output OUTPUT_FILE] [--taxid2taxon DATABASE_FILE] [--acc2taxid DATABASE_FILE] [--taxon-rank {domain, phylum, class, order, family, genus, species}] [--ID-limit POS_INTEGER] [--cluster-limit POS_INTEGER]
+usage: longMeta-chimera [--help] [--gene-input INPUT_FILE] [--taxonomy-input INPUT_FILE] [--assembly-input INPUT_FILE] [--length-input INPUT_FILE] [--gene-output OUTPUT_FILE] [--taxonomy-output OUTPUT_FILE] [--assembly-output OUTPUT_FILE] [--length-output OUTPUT_FILE] [--acc2taxid DATABASE_FILE] [--taxid2taxon DATABASE_FILE] [--taxon-rank {domain, phylum, class, order, family, genus, species}] [--ID-limit POS_INTEGER] [--cluster-limit POS_INTEGER]
 
 -h, --help
 	show help message
 
 --gene-input, -g INPUT_FILE
-	gene file
+	gene input file
 --taxonomy-input, -t INPUT_FILE
-	taxonomy file
---taxid2taxon DATABASE_FILE
-	database file reporting taxids and taxonomy information
+	taxonomy input file
 --acc2taxid DATABASE_FILE
-	database file reporting accession numbers and taxids
+	tab delimited file reporting the protein accession numbers and the associated taxids
 
-Optional:
+--taxid2taxon DATABASE_FILE
+	tab delimited file reporting the taxids and the associated taxonomical paths
 
---sequence-input, -s INPUT_FILE
-	contig file
+Options:
+
+--assembly-input, -s INPUT_FILE
+	assembly input file
 --length-input, -l INPUT_FILE
-	length file
+	length input file
 --gene-output, -go OUTPUT_FILE
-	output gene file
+	gene output file
 --taxonomy-output, -to OUTPUT_FILE
-	output taxonomy file
---sequence-output, -so OUTPUT_FILE
-	output contig file
+	taxonomy output file
+--assembly-output, -so OUTPUT_FILE
+	assembly output file
 --length-output, -lo OUTPUT_FILE
-	output length file
+	length output file
 --taxon-rank {domain, phylum, class, order, family, genus, species}
 	taxonomical level for chimera finding. default: genus
 --ID-limit POS_INTEGER
-	minimum identity score to consider a gene coding region . default: 80
+	minimum identity score to consider a gene coding region. default: 80
 --cluster-limit POS_INTEGER
 	number of consecutive gene coding region assigned to the same taxon to divide the contig. default: 2
 ```
 
-4. Abundance calculation : longMeta-abundance
+##### 4. Coverage calculation : longMeta-coverage
 
-The script longMeta-abundance works with output files from longMeta-assignment and reads aligned to the assembly. We used bwahaha or bowtie2 to align Illumina reads back to assembly.
+The script longMeta-coverage calculates the base coverage associated with different genes and taxa.
 
 ```bash
-longMeta-abundance [--help] [--taxonomy-input INPUT_FILE] [--sam-input INPUT_FILE] [--length-input INPUT_FILE] [--output-folder OUTPUT_FOLDER] [--ignore_uncl {yes,no}] [--perc-limit POS_NUMBER] [--phyla-exclusion {yes,no}] [--gene-input INPUT_FILE] [--acc2gene DATABASE_FILE] [--acc2go DATABASE_FILE] [--read-length POS_INTEGER] [--alignment-AS NUMBER]
+usage: longMeta-abundance [--help] [--taxonomy-input INPUT_FILE] [--sam-input INPUT_FILE] [--length-input INPUT_FILE] [--output-folder OUTPUT_FOLDER] [--ignore_uncl {yes,no}] [--perc-limit POS_NUMBER] [--phyla-exclusion {yes,no}] [--gene-input INPUT_FILE] [--acc2gene DATABASE_FILE] [--acc2go DATABASE_FILE] [--read-length POS_INTEGER] [--alignment-AS NUMBER]
 
 --help, -h
 	show help message
 
 --taxonomy-input, -t INPUT_FILE
-	taxonomy file
+	taxonomy input file
 --sam-input, -s INPUT_FILE
-	sam files (comma-separated)
+	mapping files (sam format, comma-separated)
 --sam-input-tab, -st INPUT_FILE
-	text file reporting sam files in first column, read length can also be specified in second column
+	tab delimited file reporting sam files in the first column, read length can be specified in second column
 --length-input, -l INPUT_FILE
-	length file
+	length input file
 --output-folder, -o OUTPUT_FOLDER
 	output folder
 
-Perform gene profiling:
+Options for gene profiling:
 
 --gene-input, -g INPUT_FILE
-	gene file
+	gene input file
 --acc2gene DATABASE_FILE
-	accession to gene database
+	tab delimited file reporting the protein accession numbers and the associated protein names
 --acc2go DATABASE_FILE
-	accession to gene ontology database
+	tab delimited file reporting the protein accession numbers and the associated Gene Ontology (GO) accession codes
 
-Optional:
+Options:
 
 --ignore-uncl {yes,no}
 	consider contigs that did not get any matches from Diamond. default: no
@@ -284,46 +284,47 @@ Optional:
 ```
 
 
-5. Explore data : longMeta-explore
+##### 5. Explore data : longMeta-explore
 
-The script longMeta-explore uses the folder data with all longMeta data and allows an easy exploration of the data
+The script longMeta-explore allows an easy exploration of the gene profiles at specific taxon levels.
 
 ```bash
-longMeta-explore [--help] [--input-folder INPUT_FOLDER] [--gene STRING] [--go {go-numbers}] [--go-name STRING] [--go-ontology {molecular_function, biological_process, cellular_component}] [--taxon STRING] [--taxon-rank {domain, phylum, class, order, family, genus}] [--output-file OUTPUT_FILE] [--go2def DATABASE] [--output-type {gene,GO}]
+usage: longMeta-explore [--help] [--input-folder INPUT_FOLDER] [--gene STRING] [--go {go-numbers}] [--go-name STRING] [--go-ontology {molecular_function, biological_process, cellular_component}] [--taxon STRING] [--taxon-rank {domain, phylum, class, order, family, genus}] [--output-file OUTPUT_FILE] [--go2def DATABASE] [--output-type {gene,GO}]
 
 --help, -h
 	show help message
 
 --input-folder, -in INPUT_FOLDER
 	longMeta folder created in the previous steps of the pipeline
+--output-file, -out OUTPUT_FILE
+	output file reporting the genes of interest
 --gene, -g STRING
 	partial or entire gene name to use for gene retrieval. If the name is made up from more than one word, they must be enclosed in quotation marks. Special characters (e.g. ` or /) must be escaped with ‘\’. Write ‘all’ if all the genes must be retrieved.
---go-accession, -ga GO_CODE
-	gene ontology code to use for gene retrival
---go-name, -gn STRING
-	gene ontology name (or part) to use for gene retrival
 
---go-ontology, -go {molecular_function, biological_process, cellular_component}
-	gene ontology category
---go2def, DATABASE
-	gene ontology database
+Options:
+
 --taxon, -t STRING
 	taxa (comma-separated)
 --taxon-rank, -r {domain, phylum, class, order, family, genus}
 	rank of --taxon
---output-file, -out OUTPUT_FILE
-	output file reporting the genes of interest
+--go-accession, -ga GO_CODE
+	gene ontology code to use for gene retrival
+--go-name, -gn STRING
+	gene ontology name (or part) to use for gene retrival
+--go-ontology, -go {molecular_function, biological_process, cellular_component}
+	gene ontology category
+--go2def, DATABASE
+	tab delimited file reporting the GO codes, the GO and the associated GO names and ontologies
 --output-type {gene,GO}
 	output type
 ```
 
-6. Calculate relative abundance : longMeta-relative
+##### 6. Calculate relative abundance : longMeta-relative
 
-The script longMeta-relative gives the taxonomic relative abundance
+The script longMeta-relative calculates the taxonomic relative abundance out of the coverage data that was calculated in longMeta-coverage.
 
 ```bash
-
-longMeta-relative [--help] [--input-folder INPUT_FOLDER] [--taxid2taxon DATABASE_FILE]
+usage: longMeta-relative [--help] [--input-folder INPUT_FOLDER] [--taxid2taxon DATABASE_FILE]
 
 --help, -h
 	show help message
@@ -331,6 +332,6 @@ longMeta-relative [--help] [--input-folder INPUT_FOLDER] [--taxid2taxon DATABASE
 --input_folder, -in INPUT_FOLDER
 	longMeta folder created in the previous steps of the pipeline
 --taxid2taxon DATABASE_FILE
-	database file reporting taxids and taxonomy information
-
+	tab delimited file reporting the taxids and the associated taxonomical paths
 ```
+

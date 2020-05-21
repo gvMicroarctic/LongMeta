@@ -6,18 +6,19 @@ use strict;
 
 #usage: longMeta-relative [--help] [--input-folder INPUT_FOLDER] [--taxid2taxon DATABASE_FILE]
 
-##help message
+#help message
 if (($ARGV[0] eq '--help') or ($ARGV[0] eq '-h')) {
     print "usage: longMeta-relative [--help] [--input-folder INPUT_FOLDER] [--taxid2taxon DATABASE_FILE]\n\n";
     
     print "--help, -h\n\tshow help message\n\n";
     
     print "--input_folder, -in INPUT_FOLDER\n\tlongMeta folder created in the previous steps of the pipeline\n";
-    print "--taxid2taxon DATABASE_FILE\n\tdatabase file reporting taxids and taxonomy information\n\n";
+    print "--taxid2taxon DATABASE_FILE\n\ttab delimited file reporting the taxids and the associated taxonomical paths\n\n";
     
     exit;
 }
 
+#check options
 my %args = @ARGV;
 
 my %allOption;
@@ -31,6 +32,8 @@ foreach my $a (keys %args) {
         exit;
     }
 }
+
+#import options
 
 #input folder
 my $in = $args{'--input-folder'};

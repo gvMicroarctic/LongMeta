@@ -12,11 +12,14 @@ if (($ARGV[0] eq '--help') or ($ARGV[0] eq '-h')) {
     
     print "-h, --help\n\tshow help message\n\n";
     
-    print "--assembly-input, -s INPUT_FILE\n\tassembly input file (fasta or fastq format)\n";
+    print "--assembly-input, -s INPUT_FILE\n\tassembly input file\n\n";
+    
+    print "Options:\n\n";
+    
     print "--type {fasta, fastq}\n\tassembly format. default: fasta\n";
     print "--minimum-length, -min POS_INTEGER\n\tminimum length to consider. default: 0\n";
-    print "--assembly-output OUTPUT_FILE\n\tassembly output file, file containing only contigs longer than -min\n\n";
-    print "--length-output OUTPUT_FILE\n\tlength output file, tab-separated file reporting contigs and the correspondent lengths\n";
+    print "--assembly-output OUTPUT_FILE\n\tassembly output file, file containing only contigs longer than -min\n";
+    print "--length-output OUTPUT_FILE\n\tlength output file, tab delimited file reporting contigs and the correspondent lengths\n\n";
     exit;
 }
 

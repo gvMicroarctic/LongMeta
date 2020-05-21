@@ -13,19 +13,19 @@ if (($ARGV[0] eq '--help') or ($ARGV[0] eq '-h')) {
     
     print "--help, -h\n\tshow help message\n\n";
     
-    print "--taxonomy-input, -t INPUT_FILE\n\ttaxonomy file\n";
-    print "--sam-input, -s INPUT_FILE\n\tsam files (comma-separated)\n";
-    print "--sam-input-tab, -st INPUT_FILE\n\ttext file reporting sam files in first column, read length can also be specified in second column\n";
-    print "--length-input, -l INPUT_FILE\n\tlength file\n";
+    print "--taxonomy-input, -t INPUT_FILE\n\ttaxonomy input file\n";
+    print "--sam-input, -s INPUT_FILE\n\tmapping files (sam format, comma-separated)\n";
+    print "--sam-input-tab, -st INPUT_FILE\n\ttab delimited file reporting sam files in the first column, read length can be specified in second column\n";
+    print "--length-input, -l INPUT_FILE\n\tlength input file\n";
     print "--output-folder, -o OUTPUT_FOLDER\n\toutput folder\n\n";
     
-    print "Perform gene profiling:\n\n";
+    print "Options for gene profiling:\n\n";
     
-    print "--gene-input, -g INPUT_FILE\n\tgene file\n";
-    print "--acc2gene DATABASE_FILE\n\taccession to gene database\n";
-    print "--acc2go DATABASE_FILE\n\taccession to gene ontology database\n\n";
+    print "--gene-input, -g INPUT_FILE\n\tgene input file\n";
+    print "--acc2gene DATABASE_FILE\n\ttab delimited file reporting the protein accession numbers and the associated protein names\n";
+    print "--acc2go DATABASE_FILE\n\ttab delimited file reporting the protein accession numbers and the associated Gene Ontology (GO) accession codes\n\n";
     
-    print "Optional:\n\n";
+    print "Options:\n\n";
     
     print "--ignore-uncl {yes,no}\n\tconsider contigs that did not get any matches from Diamond. default: no\n";
     print "--phyla-exclusion {yes,no}\n\texclude contigs assigned to Metazoa and Streptophyta. default: yes\n";
