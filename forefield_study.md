@@ -1,6 +1,6 @@
 # LongMeta application
 
-We used the longMeta pipeline to analyze three environmental whole metagenomics datasets. The samples were collected during two summer seasons (2014 and 2015) from three different proglacial systems sited in front of Midtre Lovénbreen (Svalbard), the Storglaciären (Sweden) and the Greenlandic ice sheet in proximity of point 601. This dataset has 65 soil whole shotgun metagenomics samples for a total of 3,531,237,696 trimmed and quality checked paired-end Illumina reads (2x100 bp and 2x150 bp) and 433 Gb of data.
+We used the longMeta pipeline to analyze three environmental whole metagenomics datasets (https://doi.org/10.3389/fmicb.2021.627437). The samples were collected during two summer seasons (2014 and 2015) from three different proglacial systems sited in front of Midtre Lovénbreen (Svalbard), the Storglaciären (Sweden) and the Greenlandic ice sheet in proximity of point 601. This dataset has 65 soil whole shotgun metagenomic samples for a total of 3,531,237,696 trimmed and quality checked paired-end Illumina reads (2x100 bp and 2x150 bp) and 433 Gb of data.
 
 The aim of this project was to explore taxonomy profiles of the microbial succession to study the rock weathering and nitrogen fixing biological processes and their protagonists.
 
