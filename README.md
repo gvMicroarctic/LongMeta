@@ -2,7 +2,7 @@
 
 This is a pipeline for the annotation of long reads such as assembly contigs. We suggest to use this pipeline only on shallow environmental assemblies where a gene prediction approach for functional annotation is not applicable. Some of these steps can also be applied for Nanopore read annotation.
 
-Click [here](forefield_study.md) to see how the LongMeta pipeline was applied to environmental data.
+Click [here](forefield_study.md) to see how the LongMeta pipeline was applied to environmental data (Varliero et al., 2021; https://doi.org/10.3389/fmicb.2021.627437).
 
 #### Database
 
